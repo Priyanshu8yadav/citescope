@@ -10,6 +10,9 @@ from typing import Dict, List, Optional, Any
 OPENALEX_BASE_URL = "https://api.openalex.org"
 POLITE_USER_AGENT = "CiteScopeAI/1.0 (B.Tech Capstone Project; mailto:citescope.project@gmail.com)"
 
+# In-memory paper cache to store retrieved OpenAlex works
+PAPER_CACHE: Dict[str, Dict[str, Any]] = {}
+
 
 def decode_inverted_index(inverted_index: Optional[Dict[str, List[int]]]) -> str:
     """
@@ -49,12 +52,46 @@ async def search_works(query: str, page: int = 1, per_page: int = 10) -> List[Di
                 data = response.json()
                 results = []
                 for item in data.get("results", []):
-                    results.append(format_openalex_work(item))
+                    formatted = format_openalex_work(item)
+                    PAPER_CACHE[formatted["id"]] = formatted
+                    results.append(formatted)
                 return results
     except Exception as e:
         print(f"[OpenAlex Error]: {e}, using fallback data")
         
-    return get_fallback_papers(query)
+    fallback = get_fallback_papers(query)
+    for p in fallback:
+        PAPER_CACHE[p["id"]] = p
+    return fallback
+
+
+async def get_work_by_id(work_id: str) -> Optional[Dict[str, Any]]:
+    """
+    Retrieves a specific scientific work by its OpenAlex ID or DOI.
+    """
+    clean_id = work_id.replace("https://openalex.org/", "").strip()
+    if clean_id in PAPER_CACHE:
+        return PAPER_CACHE[clean_id]
+        
+    for p in get_fallback_papers():
+        if p["id"] == clean_id or p.get("openalex_id", "").endswith(clean_id):
+            PAPER_CACHE[clean_id] = p
+            return p
+            
+    headers = {"User-Agent": POLITE_USER_AGENT}
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(f"{OPENALEX_BASE_URL}/works/{clean_id}", headers=headers)
+            if response.status_code == 200:
+                item = response.json()
+                formatted = format_openalex_work(item)
+                PAPER_CACHE[clean_id] = formatted
+                return formatted
+    except Exception as e:
+        print(f"[OpenAlex Get Error for {clean_id}]: {e}")
+        
+    return None
+
 
 
 def format_openalex_work(work: Dict[str, Any]) -> Dict[str, Any]:

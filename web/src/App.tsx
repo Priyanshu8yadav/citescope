@@ -17,7 +17,6 @@ import {
   Cpu
 } from 'lucide-react';
 
-
 interface Paper {
   id: string;
   openalex_id?: string;
@@ -45,6 +44,15 @@ interface ConsensusData {
   };
   synthesis: string;
   rigor_rating: string;
+  traceable_studies?: Array<{
+    id: string;
+    title: string;
+    authors: string;
+    year: number;
+    venue: string;
+    evidence: string;
+    stance: string;
+  }>;
 }
 
 interface MatrixRow {
@@ -54,6 +62,66 @@ interface MatrixRow {
   authors: string;
   cells: Record<string, string>;
 }
+
+interface GraphData {
+  nodes: Array<{
+    id: string;
+    title: string;
+    short_label: string;
+    year: number;
+    citations: number;
+    authors: string[];
+    venue: string;
+    x: number;
+    y: number;
+  }>;
+  edges: Array<{
+    source: string;
+    target: string;
+    intent: 'supporting' | 'contrasting' | 'mentioning';
+    section: string;
+    snippet: string;
+    confidence: number;
+  }>;
+}
+
+interface GapData {
+  topic: string;
+  limitation_clusters: Array<{
+    cluster_name: string;
+    severity: string;
+    affected_papers: string[];
+    description: string;
+    emerging_solution: string;
+  }>;
+  contradiction_pairs: Array<{
+    paper_a: string;
+    paper_b: string;
+    dispute_point: string;
+    details: string;
+  }>;
+  unexplored_frontiers: Array<{
+    title: string;
+    untested_intersection: string;
+    opportunity_score: string;
+    thesis_feasibility: string;
+    suggested_methodology: string;
+  }>;
+}
+
+const DEFAULT_PAPER: Paper = {
+  id: 'W3125678901',
+  title: 'Attention Is All You Need',
+  authors: ['Ashish Vaswani', 'Noam Shazeer', 'Niki Parmar', 'Jakob Uszkoreit', 'Llion Jones'],
+  year: 2017,
+  venue: 'Advances in Neural Information Processing Systems (NeurIPS)',
+  citation_count: 134210,
+  influential_citations: 18240,
+  abstract: 'The dominant sequence transduction models are based on complex recurrent or convolutional neural networks that include an encoder and a decoder. We propose a new simple network architecture, the Transformer, based solely on attention mechanisms, dispensing with recurrence and convolutions entirely. Experiments on two machine translation tasks show these models to be superior in quality while being more parallelizable and requiring significantly less time to train.',
+  tldr: 'Introduced the Transformer architecture, replacing recurrent and convolutional layers entirely with multi-head self-attention.',
+  pdf_url: 'https://arxiv.org/pdf/1706.03762.pdf',
+  is_oa: true
+};
 
 export function App() {
   const [activeTab, setActiveTab] = useState<'discovery' | 'matrix' | 'graph' | 'gaps' | 'copilot' | 'mobile'>('discovery');
@@ -71,15 +139,20 @@ export function App() {
 
   // Graph State
   const [graphMode, setGraphMode] = useState<'network' | 'timeline'>('network');
+  const [graphData, setGraphData] = useState<GraphData | null>(null);
   const [selectedEdge, setSelectedEdge] = useState<any | null>(null);
   const [selectedNode, setSelectedNode] = useState<any | null>(null);
 
+  // Gap State
+  const [gapData, setGapData] = useState<GapData | null>(null);
+
   // Copilot State
+  const [activeCopilotPaper, setActiveCopilotPaper] = useState<Paper>(DEFAULT_PAPER);
   const [copilotMessages, setCopilotMessages] = useState<Array<{ sender: 'user' | 'assistant'; text: string; citation?: string }>>([
     {
       sender: 'assistant',
-      text: "Welcome to CiteScope Copilot. I'm connected to 'Attention Is All You Need' (Vaswani et al., 2017). Highlight any text, formula, or table on the left, or ask a question.",
-      citation: "Document Loaded: arXiv:1706.03762"
+      text: "Welcome to CiteScope Copilot. Connected to 'Attention Is All You Need' (Vaswani et al., 2017). Highlight any passage, formula, or table, or ask a question.",
+      citation: "Document Loaded: NeurIPS 2017 • arXiv:1706.03762"
     }
   ]);
   const [copilotInput, setCopilotInput] = useState('');
@@ -88,7 +161,9 @@ export function App() {
   // Initial Data Fetch
   useEffect(() => {
     fetchSearchResults('Transformer');
-    fetchMatrix();
+    fetchMatrix(['W3125678901', 'W2963403868', 'W4389201948', 'W4294029411']);
+    fetchGraph('Transformer');
+    fetchGaps('Transformer');
   }, []);
 
   const fetchSearchResults = async (query: string) => {
@@ -100,149 +175,65 @@ export function App() {
         setPapers(data.papers || []);
         setConsensus(data.consensus || null);
         setBackendOnline(true);
+        fetchGraph(query);
+        fetchGaps(query);
       } else {
         throw new Error('Backend offline');
       }
     } catch {
       setBackendOnline(false);
       // Client-side fallback dataset
-      setPapers([
-        {
-          id: 'W3125678901',
-          title: 'Attention Is All You Need',
-          authors: ['Ashish Vaswani', 'Noam Shazeer', 'Niki Parmar', 'Jakob Uszkoreit', 'Llion Jones'],
-          year: 2017,
-          venue: 'NeurIPS 2017',
-          citation_count: 134210,
-          influential_citations: 18240,
-          abstract: 'We propose a new simple network architecture, the Transformer, based solely on attention mechanisms, dispensing with recurrence and convolutions entirely. Experiments on two machine translation tasks show these models to be superior in quality while being more parallelizable and requiring significantly less time to train.',
-          tldr: 'Introduced the Transformer architecture, replacing recurrent and convolutional layers entirely with multi-head self-attention.',
-          pdf_url: 'https://arxiv.org/pdf/1706.03762.pdf',
-          is_oa: true
-        },
-        {
-          id: 'W2963403868',
-          title: 'BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding',
-          authors: ['Jacob Devlin', 'Ming-Wei Chang', 'Kenton Lee', 'Kristina Toutanova'],
-          year: 2018,
-          venue: 'NAACL-HLT 2019',
-          citation_count: 98450,
-          influential_citations: 12430,
-          abstract: 'We introduce BERT, designed to pre-train deep bidirectional representations from unlabeled text by jointly conditioning on both left and right context in all layers.',
-          tldr: 'Developed deep bidirectional representation learning via masked language modeling and next sentence prediction.',
-          pdf_url: 'https://arxiv.org/pdf/1810.04805.pdf',
-          is_oa: true
-        },
-        {
-          id: 'W4389201948',
-          title: 'Mamba: Linear-Time Sequence Modeling with Selective State Spaces',
-          authors: ['Albert Gu', 'Tri Dao'],
-          year: 2023,
-          venue: 'arXiv preprint',
-          citation_count: 2840,
-          influential_citations: 490,
-          abstract: 'Transformers have a key computational limitation: quadratic self-attention scaling. We introduce Mamba, a selective state space model that achieves linear scaling in sequence length while matching or outperforming Transformers.',
-          tldr: 'Proposed selective state-space models achieving linear-time sequence scaling with attention-competitive performance.',
-          pdf_url: 'https://arxiv.org/pdf/2312.00752.pdf',
-          is_oa: true
-        },
-        {
-          id: 'W4294029411',
-          title: 'Direct Preference Optimization: Your Language Model is Secretly a Reward Model',
-          authors: ['Rafael Rafailov', 'Archit Sharma', 'Eric Mitchell', 'Stefano Ermon', 'Christopher D. Manning'],
-          year: 2023,
-          venue: 'NeurIPS 2023',
-          citation_count: 3950,
-          influential_citations: 620,
-          abstract: 'We introduce Direct Preference Optimization (DPO), which derives an exact closed-form solution to the RLHF objective, training directly on human preferences with a simple binary cross-entropy loss without reward modeling or RL.',
-          tldr: 'Eliminates RL loops in language model alignment by optimizing policy parameters directly on preference pairs.',
-          pdf_url: 'https://arxiv.org/pdf/2305.18290.pdf',
-          is_oa: true
-        }
-      ]);
-      setConsensus({
-        query: query,
-        sample_size: 4,
-        stance: { affirmative: 74, neutral_or_mixed: 18, negative_or_disputing: 8 },
-        synthesis: "Majority of empirical literature (74%) demonstrates significant gains over convolutional/recurrent baselines, with ongoing exploration into linear-time state-space alternatives.",
-        rigor_rating: "Peer-Reviewed High Impact"
-      });
+      setPapers([DEFAULT_PAPER]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const fetchMatrix = async (customCols: string[] = []) => {
+  const fetchMatrix = async (paperIds?: string[], customCols?: string[]) => {
+    const ids = paperIds || matrixPapers;
     try {
       const res = await fetch('http://localhost:8000/api/matrix/extract', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ paper_ids: matrixPapers, custom_columns: customCols })
+        body: JSON.stringify({ paper_ids: ids, custom_columns: customCols })
       });
       if (res.ok) {
         const data = await res.json();
         setMatrixData(data);
       }
     } catch {
-      // Fallback matrix
-      setMatrixData({
-        columns: ['Core Problem', 'Methodology / Architecture', 'Datasets / Benchmarks', 'Key Findings / Metric', 'Key Stated Limitations'],
-        rows: [
-          {
-            paper_id: 'W3125678901',
-            paper_title: 'Attention Is All You Need (2017)',
-            year: 2017,
-            authors: 'Vaswani et al.',
-            cells: {
-              'Core Problem': 'Quadratic computational bottlenecks and lack of parallelization in RNNs/LSTMs for sequence translation.',
-              'Methodology / Architecture': 'Transformer relying purely on multi-head scaled dot-product self-attention.',
-              'Datasets / Benchmarks': 'WMT 2014 English-to-German and English-to-French.',
-              'Key Findings / Metric': '28.4 BLEU on En-De; trained in 3.5 days on 8 P100 GPUs.',
-              'Key Stated Limitations': 'Quadratic memory complexity O(N^2) scaling with context length.'
-            }
-          },
-          {
-            paper_id: 'W4389201948',
-            paper_title: 'Mamba: Linear-Time Sequence Modeling (2023)',
-            year: 2023,
-            authors: 'Gu & Dao',
-            cells: {
-              'Core Problem': 'Quadratic scaling of Transformers limits context length and inference speed.',
-              'Methodology / Architecture': 'Selective State Space Model (SSM) with hardware-aware parallel scan.',
-              'Datasets / Benchmarks': 'The Pile, Long Range Arena, Audio benchmarks.',
-              'Key Findings / Metric': '5x higher generation throughput; linear scaling in sequence length up to 1M tokens.',
-              'Key Stated Limitations': 'Lower capacity on associative recall and in-context key-value copying tasks.'
-            }
-          },
-          {
-            paper_id: 'W4294029411',
-            paper_title: 'Direct Preference Optimization (2023)',
-            year: 2023,
-            authors: 'Rafailov et al.',
-            cells: {
-              'Core Problem': 'Instability, reward-model exploitation, and extreme VRAM cost of PPO RLHF.',
-              'Methodology / Architecture': 'Closed-form implicit reward parameterization optimized with binary cross-entropy.',
-              'Datasets / Benchmarks': 'Anthropic Helpful & Harmless, TL;DR Summarization.',
-              'Key Findings / Metric': 'Outperforms PPO in win-rate while training with stable cross-entropy loss.',
-              'Key Stated Limitations': 'Can overfit to reference model policy; sensitive to out-of-distribution preference noise.'
-            }
-          }
-        ]
-      });
+      // Fallback
+    }
+  };
+
+  const fetchGraph = async (topic: string) => {
+    try {
+      const res = await fetch(`http://localhost:8000/api/citations/graph?topic=${encodeURIComponent(topic)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setGraphData(data);
+      }
+    } catch {
+      // Keep existing graph data
+    }
+  };
+
+  const fetchGaps = async (topic: string) => {
+    try {
+      const res = await fetch(`http://localhost:8000/api/research-gaps?topic=${encodeURIComponent(topic)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setGapData(data);
+      }
+    } catch {
+      // Keep existing gap data
     }
   };
 
   const handleAddColumn = () => {
     if (!newColumnName.trim() || !matrixData) return;
     const updatedCols = [...matrixData.columns, newColumnName.trim()];
-    const updatedRows = matrixData.rows.map(row => ({
-      ...row,
-      cells: {
-        ...row.cells,
-        [newColumnName.trim()]: `Synthesized analysis for '${newColumnName.trim()}' extracted from methodology section.`
-      }
-    }));
-    setMatrixData({ columns: updatedCols, rows: updatedRows });
+    fetchMatrix(matrixPapers, updatedCols.slice(5));
     setNewColumnName('');
   };
 
@@ -257,7 +248,7 @@ export function App() {
       const res = await fetch('http://localhost:8000/api/copilot/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ paper_id: 'W3125678901', question })
+        body: JSON.stringify({ paper_id: activeCopilotPaper.id, question })
       });
       if (res.ok) {
         const data = await res.json();
@@ -270,16 +261,12 @@ export function App() {
         throw new Error();
       }
     } catch {
-      // Offline fallback response
-      let fallbackAnswer = "In the Transformer paper, the self-attention mechanism computes representations of a sequence by relating different positions of a single sequence. Multi-head attention allows the model to jointly attend to information from different representation subspaces.";
-      let fallbackCitation = "Section 3.2, Multi-Head Attention";
+      let fallbackAnswer = `In '${activeCopilotPaper.title}', key findings are: ${activeCopilotPaper.tldr}`;
+      let fallbackCitation = "Abstract & Findings";
 
-      if (question.toLowerCase().includes('formula') || question.toLowerCase().includes('equation')) {
-        fallbackAnswer = "Attention(Q, K, V) = softmax((Q K^T) / sqrt(d_k)) V. The scaling factor 1/sqrt(d_k) counteracts the effect of dot products growing large in high dimensions, preventing small gradients in the softmax function.";
-        fallbackCitation = "Equation (1), Page 4";
-      } else if (question.toLowerCase().includes('limitation')) {
-        fallbackAnswer = "The authors explicitly note that self-attention incurs quadratic computational complexity O(N^2) with respect to sequence length, making ultra-long document translation memory-intensive.";
-        fallbackCitation = "Section 5, Complexity per Layer";
+      if (question.toLowerCase().includes('formula') || question.toLowerCase().includes('math')) {
+        fallbackAnswer = "Attention(Q, K, V) = softmax((Q K^T) / sqrt(d_k)) V. Scaling by 1/sqrt(d_k) counteracts large dot products in high dimensions.";
+        fallbackCitation = "Section 3.2.1";
       }
 
       setCopilotMessages([...newMsgs, {
@@ -387,7 +374,7 @@ export function App() {
             </div>
           </div>
 
-          {/* Backend Status & Quick Links */}
+          {/* Backend Status */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{
               display: 'flex',
@@ -455,9 +442,7 @@ export function App() {
       {/* Main Body Content */}
       <main style={{ flex: 1, maxWidth: 1400, width: '100%', margin: '0 auto', padding: '24px 24px 48px 24px' }}>
 
-        {/* =========================================================================
-            TAB 1: LITERATURE DISCOVERY & CONSENSUS
-            ========================================================================= */}
+        {/* TAB 1: LITERATURE DISCOVERY & CONSENSUS */}
         {activeTab === 'discovery' && (
           <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
             {/* Quick Topic Chips */}
@@ -467,8 +452,8 @@ export function App() {
                 'Transformer',
                 'Mamba State Spaces',
                 'Direct Preference Optimization',
-                'Few-Shot Language Models',
-                'Diffusion Models vs GANs'
+                'Does smoking cause cancer',
+                'Graph Neural Networks for Drug Discovery'
               ].map((topic) => (
                 <button
                   key={topic}
@@ -491,7 +476,7 @@ export function App() {
               ))}
             </div>
 
-            {/* Consensus Meter (Consensus.app + Elicit style) */}
+            {/* Genuine Consensus Meter */}
             {consensus && (
               <div className="glass-panel" style={{ padding: 22, borderLeft: '4px solid var(--cyan-400)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 12 }}>
@@ -500,9 +485,9 @@ export function App() {
                       <TrendingUp size={18} color="var(--cyan-400)" />
                     </div>
                     <div>
-                      <h3 style={{ fontSize: '1.05rem', color: '#ffffff' }}>Synthesized Scientific Consensus</h3>
+                      <h3 style={{ fontSize: '1.05rem', color: '#ffffff' }}>Synthesized Literature Consensus</h3>
                       <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                        Query: &quot;{consensus.query}&quot; • Aggregated from peer-reviewed literature and preprints
+                        Query: &quot;{consensus.query}&quot; • Computed across {consensus.sample_size} traceable peer-reviewed works
                       </p>
                     </div>
                   </div>
@@ -602,9 +587,9 @@ export function App() {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minWidth: 160 }}>
                           <button
                             onClick={() => {
-                              if (!matrixPapers.includes(paper.id)) {
-                                setMatrixPapers([...matrixPapers, paper.id]);
-                              }
+                              const newIds = matrixPapers.includes(paper.id) ? matrixPapers : [...matrixPapers, paper.id];
+                              setMatrixPapers(newIds);
+                              fetchMatrix(newIds);
                               setActiveTab('matrix');
                             }}
                             className="btn-primary"
@@ -613,14 +598,27 @@ export function App() {
                             <Plus size={14} /> Add to Matrix
                           </button>
                           <button
-                            onClick={() => setActiveTab('graph')}
+                            onClick={() => {
+                              fetchGraph(paper.title);
+                              setActiveTab('graph');
+                            }}
                             className="btn-secondary"
                             style={{ fontSize: '0.78rem', padding: '8px 12px' }}
                           >
                             <GitFork size={14} /> View in Graph
                           </button>
                           <button
-                            onClick={() => setActiveTab('copilot')}
+                            onClick={() => {
+                              setActiveCopilotPaper(paper);
+                              setActiveTab('copilot');
+                              setCopilotMessages([
+                                {
+                                  sender: 'assistant',
+                                  text: `Welcome to CiteScope Copilot. Connected to '${paper.title}' (${paper.authors[0] || 'Author'} et al., ${paper.year}). Ask questions about its methodology, datasets, or conclusions.`,
+                                  citation: `Document Loaded: ${paper.venue}`
+                                }
+                              ]);
+                            }}
                             className="btn-secondary"
                             style={{ fontSize: '0.78rem', padding: '8px 12px' }}
                           >
@@ -655,9 +653,7 @@ export function App() {
           </div>
         )}
 
-        {/* =========================================================================
-            TAB 2: MULTI-PAPER COMPARISON MATRIX
-            ========================================================================= */}
+        {/* TAB 2: MULTI-PAPER COMPARISON MATRIX */}
         {activeTab === 'matrix' && (
           <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
@@ -667,7 +663,7 @@ export function App() {
                   Multi-Paper Comparison Matrix
                 </h2>
                 <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                  Synthesized comparison grid across {matrixData?.rows.length || 0} benchmark publications (Elicit style).
+                  Synthesized comparison grid across {matrixData?.rows.length || 0} papers (Elicit style).
                 </p>
               </div>
 
@@ -738,7 +734,7 @@ export function App() {
               </div>
             )}
 
-            {/* Cell Provenance Modal / Bottom Sheet */}
+            {/* Cell Provenance Modal */}
             {selectedCell && (
               <div className="glass-panel" style={{ padding: 18, borderLeft: '4px solid var(--indigo-400)', marginTop: 8 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
@@ -756,16 +752,14 @@ export function App() {
                   &quot;{selectedCell.value}&quot;
                 </p>
                 <span style={{ fontSize: '0.75rem', color: 'var(--emerald-400)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <CheckCircle2 size={12} /> Grounded with 96% confidence score from full-text methodology section
+                  <CheckCircle2 size={12} /> Grounded from publication text and abstract index
                 </span>
               </div>
             )}
           </div>
         )}
 
-        {/* =========================================================================
-            TAB 3: SMART CITATION GRAPH & TIMELINE
-            ========================================================================= */}
+        {/* TAB 3: SMART CITATION GRAPH & TIMELINE */}
         {activeTab === 'graph' && (
           <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
@@ -775,7 +769,7 @@ export function App() {
                   Smart Citation Graph & Timeline Projection
                 </h2>
                 <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                  Integrates ResearchRabbit citation links, Scite sentiment tags, and Litmaps chronological axes.
+                  Visualizes actual citation relationships for &quot;{searchQuery}&quot; (Litmaps + ResearchRabbit + Scite).
                 </p>
               </div>
 
@@ -851,159 +845,94 @@ export function App() {
                   <g opacity="0.3">
                     <line x1="100" y1="360" x2="800" y2="360" stroke="var(--border-subtle)" strokeWidth="2" />
                     <line x1="100" y1="60" x2="100" y2="360" stroke="var(--border-subtle)" strokeWidth="2" />
-                    <text x="180" y="385" fill="var(--text-muted)" fontSize="12">2017</text>
-                    <text x="350" y="385" fill="var(--text-muted)" fontSize="12">2018</text>
-                    <text x="520" y="385" fill="var(--text-muted)" fontSize="12">2020</text>
-                    <text x="700" y="385" fill="var(--text-muted)" fontSize="12">2023</text>
+                    <text x="180" y="385" fill="var(--text-muted)" fontSize="12">Earlier Works</text>
+                    <text x="700" y="385" fill="var(--text-muted)" fontSize="12">Recent Works (2023+)</text>
                     <text x="50" y="100" fill="var(--text-muted)" fontSize="11" transform="rotate(-90 50,100)">Impact (Citations)</text>
                   </g>
                 )}
 
-                {/* Directed Edges with Sentiment Colors */}
-                {/* Edge 1: BERT -> Transformer (Supporting) */}
-                <line
-                  x1={graphMode === 'network' ? 450 : 350}
-                  y1={graphMode === 'network' ? 200 : 160}
-                  x2={graphMode === 'network' ? 250 : 180}
-                  y2={graphMode === 'network' ? 140 : 100}
-                  stroke="#10b981"
-                  strokeWidth="2.5"
-                  strokeDasharray={graphMode === 'timeline' ? '4 2' : 'none'}
-                  markerEnd="url(#arrow-supporting)"
-                  style={{ cursor: 'pointer' }}
-                  onClick={() => setSelectedEdge({
-                    source: 'BERT (Devlin et al., 2018)',
-                    target: 'Attention Is All You Need (Vaswani et al., 2017)',
-                    intent: 'supporting',
-                    section: 'Methods',
-                    snippet: 'We follow the Transformer architecture of Vaswani et al. (2017) and utilize multi-head self-attention to learn deep bidirectional representations.',
-                    confidence: 0.94
-                  })}
-                />
+                {/* Dynamic Edge & Node Rendering */}
+                {(() => {
+                  const nodes = graphData?.nodes || [];
+                  const edges = graphData?.edges || [];
+                  const count = Math.max(1, nodes.length);
 
-                {/* Edge 2: Mamba -> Transformer (Contrasting) */}
-                <line
-                  x1={graphMode === 'network' ? 580 : 700}
-                  y1={graphMode === 'network' ? 130 : 280}
-                  x2={graphMode === 'network' ? 250 : 180}
-                  y2={graphMode === 'network' ? 140 : 100}
-                  stroke="#f43f5e"
-                  strokeWidth="2.5"
-                  markerEnd="url(#arrow-contrasting)"
-                  style={{ cursor: 'pointer' }}
-                  onClick={() => setSelectedEdge({
-                    source: 'Mamba (Gu & Dao, 2023)',
-                    target: 'Attention Is All You Need (Vaswani et al., 2017)',
-                    intent: 'contrasting',
-                    section: 'Introduction & Motivation',
-                    snippet: 'Despite the dominance of Transformers (Vaswani et al., 2017), their quadratic scaling O(N^2) in sequence length incurs prohibitive memory overhead during auto-regressive generation.',
-                    confidence: 0.89
-                  })}
-                />
+                  const coords: Record<string, { x: number; y: number }> = {};
+                  nodes.forEach((n, idx) => {
+                    if (graphMode === 'network') {
+                      const angle = (idx / count) * 2 * Math.PI;
+                      coords[n.id] = {
+                        x: 450 + 260 * Math.cos(angle),
+                        y: 200 + 120 * Math.sin(angle)
+                      };
+                    } else {
+                      coords[n.id] = {
+                        x: 180 + (idx / count) * 560,
+                        y: 320 - Math.min(220, (idx % 3) * 80 + 40)
+                      };
+                    }
+                  });
 
-                {/* Edge 3: DPO -> GPT-3 (Contrasting) */}
-                <line
-                  x1={graphMode === 'network' ? 620 : 700}
-                  y1={graphMode === 'network' ? 300 : 260}
-                  x2={graphMode === 'network' ? 380 : 520}
-                  y2={graphMode === 'network' ? 320 : 180}
-                  stroke="#f43f5e"
-                  strokeWidth="2.5"
-                  markerEnd="url(#arrow-contrasting)"
-                  style={{ cursor: 'pointer' }}
-                  onClick={() => setSelectedEdge({
-                    source: 'Direct Preference Optimization (Rafailov et al., 2023)',
-                    target: 'Few-Shot Learners (Brown et al., 2020)',
-                    intent: 'contrasting',
-                    section: 'Background & RLHF',
-                    snippet: 'Standard RLHF applied to large language models (Brown et al., 2020) relies on complex PPO actor-critic loops that suffer from high variance and reward collapse.',
-                    confidence: 0.91
-                  })}
-                />
+                  return (
+                    <>
+                      {/* Render Lines */}
+                      {edges.map((e, idx) => {
+                        const s = coords[e.source];
+                        const t = coords[e.target];
+                        if (!s || !t) return null;
+                        const color = e.intent === 'supporting' ? '#10b981' : e.intent === 'contrasting' ? '#f43f5e' : '#94a3b8';
+                        return (
+                          <line
+                            key={idx}
+                            x1={s.x}
+                            y1={s.y}
+                            x2={t.x}
+                            y2={t.y}
+                            stroke={color}
+                            strokeWidth="2.5"
+                            strokeDasharray={graphMode === 'timeline' ? '4 2' : 'none'}
+                            markerEnd={`url(#arrow-${e.intent})`}
+                            style={{ cursor: 'pointer' }}
+                            onClick={() => setSelectedEdge({
+                              source: e.source,
+                              target: e.target,
+                              intent: e.intent,
+                              section: e.section,
+                              snippet: e.snippet,
+                              confidence: e.confidence
+                            })}
+                          />
+                        );
+                      })}
 
-                {/* Edge 4: GPT-3 -> BERT (Mentioning) */}
-                <line
-                  x1={graphMode === 'network' ? 380 : 520}
-                  y1={graphMode === 'network' ? 320 : 180}
-                  x2={graphMode === 'network' ? 450 : 350}
-                  y2={graphMode === 'network' ? 200 : 160}
-                  stroke="#94a3b8"
-                  strokeWidth="2"
-                  markerEnd="url(#arrow-mentioning)"
-                  style={{ cursor: 'pointer' }}
-                  onClick={() => setSelectedEdge({
-                    source: 'Few-Shot Learners (Brown et al., 2020)',
-                    target: 'BERT (Devlin et al., 2018)',
-                    intent: 'mentioning',
-                    section: 'Related Work',
-                    snippet: 'While masked language models such as BERT (Devlin et al., 2018) excel at classification and span prediction, they do not naturally lend themselves to open-ended autoregressive few-shot completion.',
-                    confidence: 0.95
-                  })}
-                />
-
-                {/* Node 1: Attention Is All You Need */}
-                <g
-                  transform={`translate(${graphMode === 'network' ? 250 : 180}, ${graphMode === 'network' ? 140 : 100})`}
-                  onClick={() => setSelectedNode({ title: 'Attention Is All You Need', year: 2017, citations: 134210, venue: 'NeurIPS 2017' })}
-                  style={{ cursor: 'pointer' }}
-                >
-                  <circle r="32" fill="var(--indigo-500)" opacity="0.25" />
-                  <circle r="22" fill="var(--indigo-500)" stroke="#ffffff" strokeWidth="2" />
-                  <text y="38" textAnchor="middle" fill="#ffffff" fontSize="12" fontWeight="700">Vaswani (2017)</text>
-                  <text y="52" textAnchor="middle" fill="var(--cyan-400)" fontSize="10">134k cites</text>
-                </g>
-
-                {/* Node 2: BERT */}
-                <g
-                  transform={`translate(${graphMode === 'network' ? 450 : 350}, ${graphMode === 'network' ? 200 : 160})`}
-                  onClick={() => setSelectedNode({ title: 'BERT', year: 2018, citations: 98450, venue: 'NAACL 2019' })}
-                  style={{ cursor: 'pointer' }}
-                >
-                  <circle r="28" fill="var(--cyan-500)" opacity="0.25" />
-                  <circle r="19" fill="var(--cyan-500)" stroke="#ffffff" strokeWidth="2" />
-                  <text y="34" textAnchor="middle" fill="#ffffff" fontSize="12" fontWeight="700">BERT (2018)</text>
-                  <text y="48" textAnchor="middle" fill="var(--cyan-400)" fontSize="10">98k cites</text>
-                </g>
-
-                {/* Node 3: GPT-3 */}
-                <g
-                  transform={`translate(${graphMode === 'network' ? 380 : 520}, ${graphMode === 'network' ? 320 : 180})`}
-                  onClick={() => setSelectedNode({ title: 'Few-Shot Learners (GPT-3)', year: 2020, citations: 52180, venue: 'NeurIPS 2020' })}
-                  style={{ cursor: 'pointer' }}
-                >
-                  <circle r="26" fill="#8b5cf6" opacity="0.25" />
-                  <circle r="18" fill="#8b5cf6" stroke="#ffffff" strokeWidth="2" />
-                  <text y="34" textAnchor="middle" fill="#ffffff" fontSize="12" fontWeight="700">GPT-3 (2020)</text>
-                  <text y="48" textAnchor="middle" fill="var(--cyan-400)" fontSize="10">52k cites</text>
-                </g>
-
-                {/* Node 4: Mamba */}
-                <g
-                  transform={`translate(${graphMode === 'network' ? 580 : 700}, ${graphMode === 'network' ? 130 : 280})`}
-                  onClick={() => setSelectedNode({ title: 'Mamba (SSM)', year: 2023, citations: 2840, venue: 'arXiv 2023' })}
-                  style={{ cursor: 'pointer' }}
-                >
-                  <circle r="22" fill="var(--emerald-500)" opacity="0.25" />
-                  <circle r="15" fill="var(--emerald-500)" stroke="#ffffff" strokeWidth="2" />
-                  <text y="30" textAnchor="middle" fill="#ffffff" fontSize="12" fontWeight="700">Mamba (2023)</text>
-                  <text y="44" textAnchor="middle" fill="var(--emerald-400)" fontSize="10">2.8k cites</text>
-                </g>
-
-                {/* Node 5: DPO */}
-                <g
-                  transform={`translate(${graphMode === 'network' ? 620 : 700}, ${graphMode === 'network' ? 300 : 260})`}
-                  onClick={() => setSelectedNode({ title: 'DPO', year: 2023, citations: 3950, venue: 'NeurIPS 2023' })}
-                  style={{ cursor: 'pointer' }}
-                >
-                  <circle r="22" fill="var(--amber-500)" opacity="0.25" />
-                  <circle r="15" fill="var(--amber-500)" stroke="#ffffff" strokeWidth="2" />
-                  <text y="30" textAnchor="middle" fill="#ffffff" fontSize="12" fontWeight="700">DPO (2023)</text>
-                  <text y="44" textAnchor="middle" fill="var(--amber-400)" fontSize="10">3.9k cites</text>
-                </g>
+                      {/* Render Nodes */}
+                      {nodes.map((n) => {
+                        const c = coords[n.id] || { x: 450, y: 200 };
+                        return (
+                          <g
+                            key={n.id}
+                            transform={`translate(${c.x}, ${c.y})`}
+                            onClick={() => setSelectedNode(n)}
+                            style={{ cursor: 'pointer' }}
+                          >
+                            <circle r="26" fill="var(--indigo-500)" opacity="0.25" />
+                            <circle r="18" fill="var(--indigo-500)" stroke="#ffffff" strokeWidth="2" />
+                            <text y="32" textAnchor="middle" fill="#ffffff" fontSize="11" fontWeight="700">
+                              {n.short_label}
+                            </text>
+                            <text y="46" textAnchor="middle" fill="var(--cyan-400)" fontSize="9">
+                              ★ {n.citations.toLocaleString()} cites
+                            </text>
+                          </g>
+                        );
+                      })}
+                    </>
+                  );
+                })()}
               </svg>
             </div>
 
-            {/* Edge Citation Inspector Drawer (Scite Style) */}
+            {/* Edge Citation Inspector Drawer */}
             {selectedEdge && (
               <div className="glass-panel" style={{ padding: 20, borderLeft: `4px solid ${selectedEdge.intent === 'supporting' ? 'var(--emerald-400)' : selectedEdge.intent === 'contrasting' ? 'var(--rose-400)' : 'var(--text-muted)'}` }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
@@ -1017,11 +946,6 @@ export function App() {
                   </div>
                   <button onClick={() => setSelectedEdge(null)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>✕</button>
                 </div>
-
-                <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 8 }}>
-                  <strong>Source:</strong> {selectedEdge.source} ➔ <strong>Target:</strong> {selectedEdge.target}
-                </div>
-
                 <div style={{ background: 'rgba(0, 0, 0, 0.3)', padding: 12, borderRadius: 8, fontStyle: 'italic', fontSize: '0.875rem', color: '#ffffff', lineHeight: 1.6 }}>
                   &quot;{selectedEdge.snippet}&quot;
                 </div>
@@ -1049,10 +973,7 @@ export function App() {
           </div>
         )}
 
-
-        {/* =========================================================================
-            TAB 4: AUTOMATED RESEARCH GAP EXPLORER
-            ========================================================================= */}
+        {/* TAB 4: AUTOMATED RESEARCH GAP EXPLORER */}
         {activeTab === 'gaps' && (
           <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
             <div>
@@ -1061,7 +982,7 @@ export function App() {
                 Automated Research Gap & Frontier Explorer
               </h2>
               <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                Synthesizes limitation clusters, active controversies, and unexplored method-domain intersections for B.Tech thesis formulation.
+                Synthesizes limitation clusters, active controversies, and unexplored thesis frontiers for &quot;{searchQuery}&quot;.
               </p>
             </div>
 
@@ -1072,44 +993,22 @@ export function App() {
                 1. Systemic Literature Limitation Clusters
               </h3>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
-                {[
-                  {
-                    title: "Long-Horizon Reasoning & Attention Degradation",
-                    severity: "High",
-                    papers: "Vaswani et al. (2017) & Brown et al. (2020)",
-                    desc: "Quadratic memory footprint O(N^2) and needle-in-a-haystack retrieval collapse when context exceeds 64k tokens.",
-                    solution: "Hardware-aware selective state space models (Mamba) and ring-attention chunking."
-                  },
-                  {
-                    title: "Alignment Instability & Reward Hacking",
-                    severity: "Critical",
-                    papers: "Brown et al. (2020) & Rafailov et al. (2023)",
-                    desc: "PPO RLHF suffers from policy collapse and actor-critic divergence. DPO stabilizes training but is vulnerable to out-of-distribution drift.",
-                    solution: "Reference-free contrastive preference optimization and self-supervised synthetic critiques."
-                  },
-                  {
-                    title: "Data Contamination on Standard Benchmarks",
-                    severity: "Medium",
-                    papers: "Devlin et al. (2018) & Brown et al. (2020)",
-                    desc: "Web-scale training corpora inadvertently leak test splits of HumanEval and GSM8k, confounding true reasoning metrics.",
-                    solution: "Execution-verified evaluation sandboxes and dynamic contamination-resilient benchmarks."
-                  }
-                ].map((item, idx) => (
+                {(gapData?.limitation_clusters || []).map((item, idx) => (
                   <div key={idx} className="glass-panel" style={{ padding: 18 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                       <span className="badge-pill badge-contrasting">Severity: {item.severity}</span>
                       <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Cluster #{idx + 1}</span>
                     </div>
-                    <h4 style={{ fontSize: '1rem', color: '#ffffff', marginBottom: 6 }}>{item.title}</h4>
+                    <h4 style={{ fontSize: '1rem', color: '#ffffff', marginBottom: 6 }}>{item.cluster_name}</h4>
                     <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: 10, lineHeight: 1.5 }}>
-                      {item.desc}
+                      {item.description}
                     </p>
                     <div style={{ background: 'rgba(99, 102, 241, 0.1)', padding: '8px 12px', borderRadius: 6 }}>
                       <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--indigo-300)', display: 'block' }}>
                         Emerging Frontier Solution:
                       </span>
                       <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-                        {item.solution}
+                        {item.emerging_solution}
                       </span>
                     </div>
                   </div>
@@ -1117,40 +1016,25 @@ export function App() {
               </div>
             </div>
 
-            {/* Section 2: Unexplored Research Frontiers (Thesis Opportunities) */}
+            {/* Section 2: Concrete B.Tech Capstone Thesis Proposals */}
             <div>
               <h3 style={{ fontSize: '1.1rem', color: '#ffffff', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Sparkles size={18} color="var(--cyan-400)" />
                 2. Concrete B.Tech Capstone Thesis Proposals
               </h3>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: 16 }}>
-                {[
-                  {
-                    title: "Hybrid Mamba-Attention on Edge Biomedical Devices",
-                    intersection: "Selective State Spaces + Continuous Vital Signal Processing",
-                    score: "94 / 100",
-                    feasibility: "High (Public PhysioNet EEG/ECG benchmarks available)",
-                    methodology: "Replace quadratic attention with linear-time selective state space layers for 24-hour vital telemetry, retaining attention heads strictly for clinical anomaly attribution."
-                  },
-                  {
-                    title: "Offline Direct Preference Optimization on Low-Resource Indic Languages",
-                    intersection: "DPO Alignment + Morphologically Rich Multilingual Corpora",
-                    score: "88 / 100",
-                    feasibility: "High (Addresses Indian NLP context using AI4Bharat benchmarks)",
-                    methodology: "Construct bilingual preference pairs to evaluate whether closed-form DPO prevents catastrophic forgetting during fine-tuning of 7B-parameter open LLMs on Hindi and Tamil."
-                  }
-                ].map((prop, idx) => (
+                {(gapData?.unexplored_frontiers || []).map((prop, idx) => (
                   <div key={idx} className="glass-panel" style={{ padding: 20, borderTop: '3px solid var(--cyan-400)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                      <span className="badge-pill badge-open-access">Opportunity: {prop.score}</span>
-                      <span style={{ fontSize: '0.75rem', color: 'var(--emerald-400)', fontWeight: 600 }}>{prop.feasibility}</span>
+                      <span className="badge-pill badge-open-access">Opportunity: {prop.opportunity_score}</span>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--emerald-400)', fontWeight: 600 }}>{prop.thesis_feasibility}</span>
                     </div>
                     <h4 style={{ fontSize: '1.05rem', color: '#ffffff', marginBottom: 6 }}>{prop.title}</h4>
                     <p style={{ fontSize: '0.78rem', color: 'var(--indigo-300)', marginBottom: 8, fontWeight: 600 }}>
-                      Tested Intersection: {prop.intersection}
+                      Tested Intersection: {prop.untested_intersection}
                     </p>
                     <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.55 }}>
-                      {prop.methodology}
+                      {prop.suggested_methodology}
                     </p>
                   </div>
                 ))}
@@ -1159,9 +1043,7 @@ export function App() {
           </div>
         )}
 
-        {/* =========================================================================
-            TAB 5: SPLIT-VIEW PAPER COPILOT (SciSpace Style)
-            ========================================================================= */}
+        {/* TAB 5: SPLIT-VIEW PAPER COPILOT */}
         {activeTab === 'copilot' && (
           <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div>
@@ -1170,7 +1052,7 @@ export function App() {
                 Split-View Paper Copilot & Explainer
               </h2>
               <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                Interactive dual-pane reader: inspect academic PDF passages on the left, ask questions on the right (SciSpace style).
+                Inspect document on the left, ask questions on the right (SciSpace style).
               </p>
             </div>
 
@@ -1180,24 +1062,24 @@ export function App() {
               <div className="glass-panel" style={{ padding: 24, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16, background: '#0e1626' }}>
                 <div style={{ borderBottom: '1px solid var(--border-subtle)', paddingBottom: 12 }}>
                   <span style={{ fontSize: '0.72rem', color: 'var(--indigo-400)', fontWeight: 700 }}>
-                    NEURIPS 2017 • ARXlV:1706.03762
+                    {activeCopilotPaper.year} • {activeCopilotPaper.venue}
                   </span>
                   <h3 style={{ fontSize: '1.25rem', color: '#ffffff', marginTop: 4 }}>
-                    Attention Is All You Need
+                    {activeCopilotPaper.title}
                   </h3>
                   <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                    Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones et al.
+                    {activeCopilotPaper.authors.join(', ')}
                   </p>
                 </div>
 
                 <div>
-                  <h4 style={{ fontSize: '0.9rem', color: 'var(--cyan-400)', marginBottom: 6 }}>1. Abstract</h4>
+                  <h4 style={{ fontSize: '0.9rem', color: 'var(--cyan-400)', marginBottom: 6 }}>1. Abstract & Key Findings</h4>
                   <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.65 }}>
-                    The dominant sequence transduction models are based on complex recurrent or convolutional neural networks that include an encoder and a decoder. We propose a new simple network architecture, the Transformer, based solely on attention mechanisms, dispensing with recurrence and convolutions entirely.
+                    {activeCopilotPaper.abstract}
                   </p>
                 </div>
 
-                {/* Interactive Formula Box */}
+                {/* Interactive Formula / Core Method Box */}
                 <div style={{
                   background: 'rgba(99, 102, 241, 0.12)',
                   border: '1px solid var(--border-accent)',
@@ -1206,10 +1088,10 @@ export function App() {
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                     <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--indigo-300)' }}>
-                      EQUATION (1): Scaled Dot-Product Attention
+                      CORE METHOD / FORMULATION
                     </span>
                     <button
-                      onClick={() => handleAskCopilot("Explain the Scaled Dot-Product Attention formula and why sqrt(d_k) is necessary.")}
+                      onClick={() => handleAskCopilot(`Explain the core methodology and formulations of ${activeCopilotPaper.title}`)}
                       style={{
                         background: 'var(--indigo-500)',
                         border: 'none',
@@ -1221,61 +1103,38 @@ export function App() {
                         cursor: 'pointer'
                       }}
                     >
-                      Explain this Math 💡
+                      Explain this Method 💡
                     </button>
                   </div>
                   <div style={{
                     fontFamily: 'Fira Code',
-                    fontSize: '0.95rem',
+                    fontSize: '0.85rem',
                     color: '#ffffff',
                     background: 'rgba(0, 0, 0, 0.4)',
                     padding: 10,
                     borderRadius: 6,
-                    textAlign: 'center'
+                    lineHeight: 1.5
                   }}>
-                    Attention(Q, K, V) = softmax((Q K^T) / √d_k) V
+                    {activeCopilotPaper.tldr}
                   </div>
                 </div>
 
-                {/* Section 2 */}
-                <div>
-                  <h4 style={{ fontSize: '0.9rem', color: 'var(--cyan-400)', marginBottom: 6 }}>3.2 Multi-Head Attention</h4>
-                  <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.65 }}>
-                    Instead of performing a single attention function with d_model-dimensional keys, values and queries, we found it beneficial to linearly project the queries, keys and values h times with different, learned linear projections to d_k, d_k and d_v dimensions, respectively.
-                  </p>
-                </div>
-
-                {/* Interactive Table Box */}
-                <div style={{
-                  background: 'rgba(6, 182, 212, 0.08)',
-                  border: '1px solid rgba(6, 182, 212, 0.25)',
-                  borderRadius: 8,
-                  padding: 14
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--cyan-400)' }}>
-                      TABLE 2: WMT 2014 Translation Benchmark Results
-                    </span>
-                    <button
-                      onClick={() => handleAskCopilot("Explain what Table 2 reveals about training compute and BLEU metrics.")}
-                      style={{
-                        background: 'var(--cyan-500)',
-                        border: 'none',
-                        color: '#000000',
-                        fontSize: '0.7rem',
-                        fontWeight: 700,
-                        padding: '4px 8px',
-                        borderRadius: 4,
-                        cursor: 'pointer'
-                      }}
-                    >
-                      Explain Table 📊
-                    </button>
-                  </div>
-                  <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-                    • Transformer (base): 27.3 BLEU (En-De) • 3.3e18 Training FLOPs<br />
-                    • Transformer (big): 28.4 BLEU (En-De) • 2.3e19 Training FLOPs (State-of-the-art)
-                  </div>
+                {/* Interactive Question Shortcuts */}
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <button
+                    onClick={() => handleAskCopilot(`What are the key limitations stated in ${activeCopilotPaper.title}?`)}
+                    className="btn-secondary"
+                    style={{ fontSize: '0.75rem', padding: '6px 10px' }}
+                  >
+                    Stated Limitations
+                  </button>
+                  <button
+                    onClick={() => handleAskCopilot(`What datasets and evaluation metrics were used in ${activeCopilotPaper.title}?`)}
+                    className="btn-secondary"
+                    style={{ fontSize: '0.75rem', padding: '6px 10px' }}
+                  >
+                    Datasets & Benchmarks
+                  </button>
                 </div>
               </div>
 
@@ -1325,7 +1184,7 @@ export function App() {
                     value={copilotInput}
                     onChange={(e) => setCopilotInput(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleAskCopilot(copilotInput)}
-                    placeholder="Ask about formulas, methods, datasets..."
+                    placeholder="Ask about methodology, datasets, limitations..."
                     style={{
                       flex: 1,
                       background: 'rgba(0, 0, 0, 0.3)',
@@ -1350,9 +1209,7 @@ export function App() {
           </div>
         )}
 
-        {/* =========================================================================
-            TAB 6: ANDROID APP COMPANION & SIMULATOR
-            ========================================================================= */}
+        {/* TAB 6: ANDROID APP COMPANION & SIMULATOR */}
         {activeTab === 'mobile' && (
           <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
             <div>
@@ -1420,24 +1277,22 @@ export function App() {
                   <div style={{ background: '#162032', padding: 12, borderRadius: 10, marginBottom: 12 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginBottom: 4 }}>
                       <span style={{ color: 'var(--cyan-400)', fontWeight: 700 }}>Consensus Meter</span>
-                      <span style={{ color: 'var(--emerald-400)', fontWeight: 700 }}>74% Yes</span>
+                      <span style={{ color: 'var(--emerald-400)', fontWeight: 700 }}>
+                        {consensus ? `${consensus.stance.affirmative}% Yes` : "74% Yes"}
+                      </span>
                     </div>
                     <div style={{ width: '100%', height: 4, background: '#374151', borderRadius: 2, overflow: 'hidden' }}>
-                      <div style={{ width: '74%', height: '100%', background: 'var(--emerald-400)' }} />
+                      <div style={{ width: `${consensus ? consensus.stance.affirmative : 74}%`, height: '100%', background: 'var(--emerald-400)' }} />
                     </div>
                   </div>
 
                   {/* Mobile Paper Cards */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    {[
-                      { title: "Attention Is All You Need", year: 2017, cites: "134k" },
-                      { title: "Mamba: Selective State Spaces", year: 2023, cites: "2.8k" },
-                      { title: "Direct Preference Optimization", year: 2023, cites: "3.9k" }
-                    ].map((p, idx) => (
+                    {(papers.slice(0, 3)).map((p, idx) => (
                       <div key={idx} style={{ background: '#111827', padding: 10, borderRadius: 8, border: '1px solid rgba(255,255,255,0.06)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.68rem', color: 'var(--indigo-400)', marginBottom: 2 }}>
                           <span>{p.year}</span>
-                          <span style={{ color: 'var(--amber-400)', fontWeight: 700 }}>★ {p.cites}</span>
+                          <span style={{ color: 'var(--amber-400)', fontWeight: 700 }}>★ {p.citation_count.toLocaleString()}</span>
                         </div>
                         <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#ffffff' }}>{p.title}</div>
                       </div>
@@ -1478,6 +1333,7 @@ export function App() {
       }}>
         <div style={{ maxWidth: 1400, margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
           <span>CiteScope AI • B.Tech Final Semester Capstone Project</span>
+          <span>Powered by OpenAlex, Semantic Scholar S2AG & Allen AI SciCite</span>
         </div>
       </footer>
     </div>
@@ -1485,4 +1341,3 @@ export function App() {
 }
 
 export default App;
-

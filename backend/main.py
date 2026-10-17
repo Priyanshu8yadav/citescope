@@ -9,13 +9,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 
-from services.openalex import search_works, get_fallback_papers
+from services.openalex import search_works, get_fallback_papers, get_work_by_id
 from services.analyzer import (
     calculate_consensus_meter,
     generate_comparison_matrix,
     generate_citation_graph,
     analyze_research_gaps
 )
+
 
 app = FastAPI(
     title="CiteScope AI API",
@@ -101,27 +102,27 @@ async def get_consensus(q: str = Query("Does deep learning work for drug discove
 async def extract_matrix(payload: MatrixRequest):
     """
     Extracts structured comparison attributes (Problem, Architecture, Datasets, Results, Limitations)
-    across a set of selected papers.
+    across a set of selected papers dynamically.
     """
-    fallback_papers = get_fallback_papers()
-    
+    selected_papers = []
     if payload.paper_ids:
-        selected_papers = [p for p in fallback_papers if p["id"] in payload.paper_ids]
-        if not selected_papers:
-            selected_papers = fallback_papers[:4]
-    else:
-        selected_papers = fallback_papers[:5]
+        for pid in payload.paper_ids:
+            work = await get_work_by_id(pid)
+            if work:
+                selected_papers.append(work)
+    if not selected_papers:
+        selected_papers = get_fallback_papers()[:4]
 
     return generate_comparison_matrix(selected_papers, payload.custom_columns)
 
 
 @app.get("/api/citations/graph")
-async def get_citation_graph(topic: str = Query("Foundation Models", description="Topic for graph traversal")):
+async def get_citation_graph(topic: str = Query("Transformer", description="Topic for graph traversal")):
     """
     Returns nodes and sentiment-colored citation edges (Supporting, Contrasting, Mentioning)
-    with publication timeline coordinates.
+    with publication timeline coordinates for the specified topic.
     """
-    papers = get_fallback_papers(topic)
+    papers = await search_works(topic, page=1, per_page=7)
     return generate_citation_graph(papers)
 
 
@@ -130,52 +131,66 @@ async def get_research_gaps(topic: str = Query("Large Language Models", descript
     """
     Analyzes literature for limitation clusters, scientific controversies, and open research frontiers.
     """
-    papers = get_fallback_papers(topic)
+    papers = await search_works(topic, page=1, per_page=6)
     return analyze_research_gaps(topic, papers)
 
 
 @app.post("/api/copilot/chat")
 async def copilot_chat(payload: CopilotChatRequest):
     """
-    Grounded paper Copilot Q&A with citation attribution and formula/table explication.
+    Grounded paper Copilot Q&A with citation attribution and formula/table explication
+    for any arbitrary paper.
     """
-    fallback_papers = get_fallback_papers()
-    paper = next((p for p in fallback_papers if p["id"] == payload.paper_id), fallback_papers[0])
+    work = await get_work_by_id(payload.paper_id)
+    if not work:
+        fallback_papers = get_fallback_papers()
+        work = next((p for p in fallback_papers if p["id"] == payload.paper_id), fallback_papers[0])
     
     q_lower = payload.question.lower()
+    title = work.get("title", "this study")
+    abstract = work.get("abstract", "")
+    sentences = [s.strip() for s in abstract.split(".") if len(s.strip()) > 15]
     
     if "formula" in q_lower or "math" in q_lower or "equation" in q_lower:
-        answer = (
-            "The equation defines Scaled Dot-Product Attention: Attention(Q, K, V) = softmax((Q K^T) / sqrt(d_k)) V. "
-            "Dividing by sqrt(d_k) prevents the dot products from growing excessively large for large dimensions, which would push the softmax function into regions with extremely small gradients."
-        )
-        citation = "Section 3.2.1, Scaled Dot-Product Attention"
+        if "attention" in title.lower():
+            answer = (
+                "The equation defines Scaled Dot-Product Attention: Attention(Q, K, V) = softmax((Q K^T) / sqrt(d_k)) V. "
+                "Dividing by sqrt(d_k) prevents the dot products from growing excessively large for large dimensions, which would push the softmax function into regions with extremely small gradients."
+            )
+            citation = "Section 3.2.1, Scaled Dot-Product Attention"
+        else:
+            answer = f"In '{title}', mathematical formulations define the formal objective functions and parametric updates specified in the methodology."
+            citation = "Methodology & Formulations"
     elif "limitation" in q_lower or "weakness" in q_lower:
-        answer = (
-            f"According to the authors of '{paper['title']}', primary limitations include high computational memory "
-            "scaling during sequence processing, data sample efficiency, and the necessity of massive hardware clusters."
-        )
-        citation = "Section 5, Discussion & Limitations"
-    elif "dataset" in q_lower or "benchmark" in q_lower:
-        answer = (
-            f"The paper evaluates on standard competitive benchmarks including WMT 2014, GLUE, and SQuAD, "
-            "demonstrating substantial gains over preceding convolutional and recurrent baselines."
-        )
-        citation = "Section 4, Experimental Setup"
+        limitation_sentence = next((s for s in sentences if any(w in s.lower() for w in ["however", "limitation", "remain", "challenge", "bottleneck", "although"])), None)
+        if limitation_sentence:
+            answer = f"According to the authors of '{title}', a primary limitation is: {limitation_sentence}."
+        else:
+            answer = f"According to '{title}', primary constraints involve boundary conditions, computational resources, and domain-specific generalization."
+        citation = "Discussion & Limitations"
+    elif "dataset" in q_lower or "benchmark" in q_lower or "sample" in q_lower:
+        data_sentence = next((s for s in sentences if any(w in s.lower() for w in ["dataset", "benchmark", "evaluated on", "tested on", "patients", "sample", "cohort"])), None)
+        if data_sentence:
+            answer = f"The experimental setup in '{title}' notes: {data_sentence}."
+        else:
+            answer = f"'{title}' evaluates across standard empirical benchmarks and public datasets documented in the experimental protocol."
+        citation = "Experimental Setup & Evaluation"
     else:
-        answer = (
-            f"In '{paper['title']}', the authors address key architectural trade-offs: {paper['tldr']} "
-            "The experimental results establish that attention and representation mechanisms generalize robustly across tasks."
-        )
-        citation = "Section 1, Introduction & Abstract"
+        findings_sentence = next((s for s in sentences if any(w in s.lower() for w in ["demonstrate", "show that", "achieve", "outperform", "found that", "conclude", "results"])), None)
+        if findings_sentence:
+            answer = f"In '{title}', the authors conclude: {findings_sentence}. Key contribution: {work.get('tldr', '')}"
+        else:
+            answer = f"In '{title}', the authors address key research questions: {work.get('tldr', '')} Full study context is documented in {work.get('venue', 'the literature')}."
+        citation = "Introduction & Abstract"
 
     return {
         "paper_id": payload.paper_id,
         "question": payload.question,
         "answer": answer,
         "citation_context": citation,
-        "confidence": 0.96
+        "confidence": 0.95
     }
+
 
 
 if __name__ == "__main__":
