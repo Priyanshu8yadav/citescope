@@ -244,6 +244,17 @@ const SUGGESTED_QUESTIONS = [
   'Does CRISPR-Cas9 have significant off-target effects?'
 ];
 
+const getApiBase = (): string => {
+  if (import.meta.env.VITE_API_BASE_URL) {
+    return import.meta.env.VITE_API_BASE_URL;
+  }
+  if (typeof window !== 'undefined' && window.location.hostname === 'localhost' && window.location.port === '5173') {
+    return 'http://localhost:8000';
+  }
+  return '';
+};
+const API_BASE = getApiBase();
+
 export function App() {
   const [activeTab, setActiveTab] = useState<'discovery' | 'matrix' | 'graph' | 'gaps' | 'copilot' | 'mobile'>('discovery');
   const [searchQuery, setSearchQuery] = useState('Transformer');
@@ -353,7 +364,7 @@ export function App() {
     setKeyTesting(true);
     setKeyTestResult(null);
     try {
-      const res = await fetch('http://localhost:8000/api/ai/test', {
+      const res = await fetch(`${API_BASE}/api/ai/test`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ provider: aiProvider, api_key: aiApiKey, model: aiModel })
@@ -389,7 +400,7 @@ export function App() {
     const toY = overrideToYear !== undefined ? overrideToYear : activeToYear;
     const oaVal = overrideOa !== undefined ? overrideOa : oaOnlyFilter;
 
-    let url = `http://localhost:8000/api/search?q=${encodeURIComponent(query)}&page=${page}&per_page=20`;
+    let url = `${API_BASE}/api/search?q=${encodeURIComponent(query)}&page=${page}&per_page=20`;
     if (sortParam && sortParam !== 'relevance') {
       url += `&sort=${encodeURIComponent(sortParam)}`;
     }
@@ -499,7 +510,7 @@ export function App() {
   const fetchMatrix = async (paperIds?: string[], customCols?: string[]) => {
     const ids = paperIds || matrixPapers;
     try {
-      const res = await fetch('http://localhost:8000/api/matrix/extract', {
+      const res = await fetch(`${API_BASE}/api/matrix/extract`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ paper_ids: ids, custom_columns: customCols })
@@ -515,7 +526,7 @@ export function App() {
 
   const fetchGraph = async (topic: string) => {
     try {
-      const res = await fetch(`http://localhost:8000/api/citations/graph?topic=${encodeURIComponent(topic)}`);
+      const res = await fetch(`${API_BASE}/api/citations/graph?topic=${encodeURIComponent(topic)}`);
       if (res.ok) {
         const data = await res.json();
         setGraphData(data);
@@ -533,7 +544,7 @@ export function App() {
 
   const fetchGaps = async (topic: string) => {
     try {
-      const res = await fetch(`http://localhost:8000/api/research-gaps?topic=${encodeURIComponent(topic)}`);
+      const res = await fetch(`${API_BASE}/api/research-gaps?topic=${encodeURIComponent(topic)}`);
       if (res.ok) {
         const data = await res.json();
         setGapData(data);
@@ -661,7 +672,7 @@ export function App() {
         headers['X-AI-Model'] = aiModel;
       }
 
-      const res = await fetch('http://localhost:8000/api/copilot/chat', {
+      const res = await fetch(`${API_BASE}/api/copilot/chat`, {
         method: 'POST',
         headers,
         body: JSON.stringify({ paper_id: activeCopilotPaper.id, question })
