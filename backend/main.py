@@ -117,7 +117,7 @@ async def resolve_access(
 async def search_papers(
     q: str = Query("Transformer", description="Research query or topic"),
     page: int = Query(1, ge=1, description="Page number for pagination"),
-    per_page: int = Query(20, ge=5, le=50, description="Results per page"),
+    per_page: int = Query(20, ge=1, le=50, description="Results per page"),
     sort: Optional[str] = Query(None, description="Sort order: 'relevance', 'cited_by_count:desc', 'publication_year:desc', 'publication_year:asc'"),
     from_year: Optional[int] = Query(None, description="Minimum publication year (e.g. 1950)"),
     to_year: Optional[int] = Query(None, description="Maximum publication year (e.g. 2026)"),
