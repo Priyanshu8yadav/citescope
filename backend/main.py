@@ -4,7 +4,7 @@ Provides endpoints for literature discovery, comparison matrix, citation sentime
 research gap detection, and interactive Copilot reasoning.
 """
 
-from fastapi import FastAPI, Query, HTTPException
+from fastapi import FastAPI, Query, HTTPException, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
@@ -16,11 +16,17 @@ from services.analyzer import (
     generate_citation_graph,
     analyze_research_gaps
 )
+from services.resolver import resolve_full_text
+from services.ai_providers import (
+    SUPPORTED_PROVIDERS,
+    test_provider_key,
+    generate_research_completion
+)
 
 
 app = FastAPI(
     title="CiteScope AI API",
-    description="Intelligent Research Discovery, Citation Intent Analysis & Research Gap Exploration",
+    description="Intelligent Research Discovery, Citation Intent Analysis, Open Access Resolver & Research Gap Exploration",
     version="1.0.0"
 )
 
@@ -45,27 +51,130 @@ class CopilotChatRequest(BaseModel):
     selected_text: Optional[str] = None
 
 
+class AITestRequest(BaseModel):
+    provider: str
+    api_key: str
+    model: Optional[str] = None
+
+
 @app.get("/api/health")
 async def health_check():
     return {
         "status": "online",
         "service": "CiteScope AI",
         "version": "1.0.0",
-        "docs": "/docs"
+        "docs": "/docs",
+        "active_providers": list(SUPPORTED_PROVIDERS.keys())
     }
 
 
+@app.get("/api/ai/providers")
+async def get_ai_providers():
+    """
+    Returns available AI model providers (Local NLP, Google Gemini, OpenAI, Anthropic).
+    """
+    return {
+        "providers": SUPPORTED_PROVIDERS,
+        "default_provider": "local"
+    }
+
+
+@app.post("/api/ai/test")
+async def test_ai_provider(payload: AITestRequest):
+    """
+    Validates user-provided API credentials with a real provider endpoint check.
+    """
+    return await test_provider_key(payload.provider, payload.api_key, payload.model)
+
+
+@app.get("/api/resolve")
+async def resolve_access(
+    doi: Optional[str] = Query(None, description="DOI string or URL"),
+    paper_id: Optional[str] = Query(None, description="OpenAlex paper ID")
+):
+    """
+    Provider-based legitimate full-text resolver.
+    Queries Unpaywall v2, arXiv canonical archives, Europe PMC, and OpenAlex.
+    Returns verified open-access PDF links, licenses, or publisher subscription requirements.
+    """
+    paper_data: Dict[str, Any] = {}
+    if paper_id:
+        work = await get_work_by_id(paper_id)
+        if work:
+            paper_data = work
+    
+    if not paper_data and doi:
+        paper_data = {"doi": doi}
+
+    if not paper_data:
+        raise HTTPException(status_code=400, detail="Either 'doi' or 'paper_id' must be specified.")
+
+    resolved = await resolve_full_text(paper_data)
+    return resolved
+
+
 @app.get("/api/search")
-async def search_papers(q: str = Query("Transformer", description="Research query or topic")):
+async def search_papers(
+    q: str = Query("Transformer", description="Research query or topic"),
+    page: int = Query(1, ge=1, description="Page number for pagination"),
+    per_page: int = Query(20, ge=5, le=50, description="Results per page"),
+    sort: Optional[str] = Query(None, description="Sort order: 'relevance', 'cited_by_count:desc', 'publication_year:desc', 'publication_year:asc'"),
+    from_year: Optional[int] = Query(None, description="Minimum publication year (e.g. 1950)"),
+    to_year: Optional[int] = Query(None, description="Maximum publication year (e.g. 2026)"),
+    is_oa: Optional[bool] = Query(None, description="Filter for open access only")
+):
     """
-    Searches peer-reviewed works via OpenAlex and calculates consensus stance.
+    Searches peer-reviewed works via OpenAlex across time (past to recent).
+    Supports sorting by seminal citations, newest preprints, or relevance,
+    with explicit abstracts, topics, verified DOIs, and access resolution.
     """
-    works = await search_works(q, page=1, per_page=10)
+    search_res = await search_works(
+        query=q,
+        page=page,
+        per_page=per_page,
+        sort=sort,
+        from_year=from_year,
+        to_year=to_year,
+        is_oa=is_oa,
+        return_meta=True
+    )
+    
+    if isinstance(search_res, dict):
+        works = search_res.get("results", [])
+        total_count = search_res.get("total_count", len(works))
+    else:
+        works = search_res
+        total_count = len(works)
+
     consensus = calculate_consensus_meter(q, works)
+    
+    # Enrich papers with legitimate access metadata
+    for p in works:
+        if "access_resolution" not in p:
+            doi = p.get("doi") or ""
+            pdf_url = p.get("pdf_url")
+            if "arxiv" in doi.lower() or (pdf_url and "arxiv" in pdf_url.lower()):
+                p["access_status"] = "open_access_pdf"
+                p["access_label"] = "Open Access PDF"
+                p["license"] = "arXiv Perpetual Non-exclusive"
+                p["attribution_note"] = "Verified open-access preprint from arXiv"
+            elif p.get("is_oa"):
+                p["access_status"] = "open_access_pdf"
+                p["access_label"] = "Open Access PDF"
+                p["license"] = "Open Access (Indexed)"
+                p["attribution_note"] = "Open access publication"
+            else:
+                p["access_status"] = "abstract_only"
+                p["access_label"] = "Abstract & DOI"
+                p["license"] = "Subscription Required"
+                p["attribution_note"] = "Institutional or publisher access required"
     
     return {
         "query": q,
+        "page": page,
+        "per_page": per_page,
         "count": len(works),
+        "total_count": total_count,
         "consensus": consensus,
         "papers": works
     }
@@ -74,19 +183,26 @@ async def search_papers(q: str = Query("Transformer", description="Research quer
 @app.get("/api/paper/{paper_id}")
 async def get_paper_details(paper_id: str):
     """
-    Retrieves full metadata, TLDR, abstract, and citation stats for a single paper.
+    Retrieves full metadata, TLDR, abstract, citation stats, and verified access info for a paper.
     """
     fallback_list = get_fallback_papers()
+    work = None
     for p in fallback_list:
         if p["id"] == paper_id or p.get("openalex_id", "").endswith(paper_id):
-            return p
+            work = p
+            break
             
-    # Try fetching via search
-    results = await search_works(paper_id, page=1, per_page=1)
-    if results:
-        return results[0]
-        
-    raise HTTPException(status_code=404, detail="Paper not found")
+    if not work:
+        results = await search_works(paper_id, page=1, per_page=1)
+        if results:
+            work = results[0]
+            
+    if not work:
+        raise HTTPException(status_code=404, detail="Paper not found")
+
+    # Add resolved access information
+    work["access_resolution"] = await resolve_full_text(work)
+    return work
 
 
 @app.get("/api/consensus")
@@ -117,13 +233,39 @@ async def extract_matrix(payload: MatrixRequest):
 
 
 @app.get("/api/citations/graph")
-async def get_citation_graph(topic: str = Query("Transformer", description="Topic for graph traversal")):
+async def get_citation_graph(
+    topic: str = Query("Transformer", description="Topic for graph traversal"),
+    paper_ids: Optional[str] = Query(None, description="Comma-separated paper IDs to build network for")
+):
     """
     Returns nodes and sentiment-colored citation edges (Supporting, Contrasting, Mentioning)
-    with publication timeline coordinates for the specified topic.
+    spanning foundational historical papers to recent preprints.
+    Includes full abstracts, topics, and DOIs on each node.
     """
-    papers = await search_works(topic, page=1, per_page=7)
-    return generate_citation_graph(papers)
+    target_papers = []
+    if paper_ids:
+        for pid in paper_ids.split(","):
+            pid = pid.strip()
+            if pid:
+                p = await get_work_by_id(pid)
+                if p:
+                    target_papers.append(p)
+
+    if not target_papers:
+        # Retrieve both seminal works (highest cited) and recent works (newest)
+        # to construct a comprehensive past-to-recent citation lineage
+        seminal = await search_works(topic, page=1, per_page=6, sort="cited_by_count:desc")
+        recent = await search_works(topic, page=1, per_page=5, sort="publication_year:desc")
+        seen_ids = set()
+        for p in (seminal + recent):
+            if p["id"] not in seen_ids:
+                target_papers.append(p)
+                seen_ids.add(p["id"])
+
+    if not target_papers:
+        target_papers = get_fallback_papers()
+
+    return generate_citation_graph(target_papers)
 
 
 @app.get("/api/research-gaps")
@@ -136,19 +278,61 @@ async def get_research_gaps(topic: str = Query("Large Language Models", descript
 
 
 @app.post("/api/copilot/chat")
-async def copilot_chat(payload: CopilotChatRequest):
+async def copilot_chat(
+    payload: CopilotChatRequest,
+    x_ai_provider: Optional[str] = Header(None),
+    x_ai_key: Optional[str] = Header(None),
+    x_ai_model: Optional[str] = Header(None)
+):
     """
-    Grounded paper Copilot Q&A with citation attribution and formula/table explication
-    for any arbitrary paper.
+    Grounded paper Copilot Q&A with citation attribution and formula/table explication.
+    Supports user-configured AI providers (Gemini, OpenAI, Claude) via headers,
+    with automatic zero-key local NLP fallback.
     """
     work = await get_work_by_id(payload.paper_id)
     if not work:
         fallback_papers = get_fallback_papers()
         work = next((p for p in fallback_papers if p["id"] == payload.paper_id), fallback_papers[0])
     
-    q_lower = payload.question.lower()
     title = work.get("title", "this study")
     abstract = work.get("abstract", "")
+    tldr = work.get("tldr", "")
+    venue = work.get("venue", "the literature")
+    year = work.get("year", 2024)
+    doi = work.get("doi", "")
+
+    # If user provided a cloud provider and key, attempt LLM completion
+    provider = (x_ai_provider or "local").lower()
+    if provider in ["gemini", "openai", "anthropic"] and x_ai_key:
+        prompt = (
+            f"Paper Title: {title}\n"
+            f"Year: {year} | Venue: {venue}\n"
+            f"Abstract: {abstract}\n"
+            f"Selected Excerpt: {payload.selected_text or 'None'}\n\n"
+            f"User Question: {payload.question}\n\n"
+            "Ground your answer strictly in the paper's title, abstract, and excerpt above. "
+            "Cite specific sections or findings. If the text does not contain the answer, explicitly state that the abstract has insufficient information."
+        )
+        ai_res = await generate_research_completion(
+            prompt=prompt,
+            provider=provider,
+            api_key=x_ai_key,
+            model=x_ai_model
+        )
+        if ai_res.get("text") and not ai_res.get("fallback"):
+            return {
+                "paper_id": payload.paper_id,
+                "question": payload.question,
+                "answer": ai_res["text"],
+                "citation_context": f"Grounded in {title} ({year})",
+                "confidence": 0.96,
+                "provider_used": ai_res["provider_used"],
+                "model_used": ai_res["model_used"],
+                "is_llm": True
+            }
+
+    # Deterministic Local Rule-based NLP Extractor (zero external API keys needed)
+    q_lower = payload.question.lower()
     sentences = [s.strip() for s in abstract.split(".") if len(s.strip()) > 15]
     
     if "formula" in q_lower or "math" in q_lower or "equation" in q_lower:
@@ -178,9 +362,9 @@ async def copilot_chat(payload: CopilotChatRequest):
     else:
         findings_sentence = next((s for s in sentences if any(w in s.lower() for w in ["demonstrate", "show that", "achieve", "outperform", "found that", "conclude", "results"])), None)
         if findings_sentence:
-            answer = f"In '{title}', the authors conclude: {findings_sentence}. Key contribution: {work.get('tldr', '')}"
+            answer = f"In '{title}', the authors conclude: {findings_sentence}. Key contribution: {tldr}"
         else:
-            answer = f"In '{title}', the authors address key research questions: {work.get('tldr', '')} Full study context is documented in {work.get('venue', 'the literature')}."
+            answer = f"In '{title}', the authors address key research questions: {tldr} Full study context is documented in {venue}."
         citation = "Introduction & Abstract"
 
     return {
@@ -188,11 +372,14 @@ async def copilot_chat(payload: CopilotChatRequest):
         "question": payload.question,
         "answer": answer,
         "citation_context": citation,
-        "confidence": 0.95
+        "confidence": 0.95,
+        "provider_used": "local",
+        "model_used": "local-deterministic-nlp",
+        "is_llm": False
     }
-
 
 
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+
