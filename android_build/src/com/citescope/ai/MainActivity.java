@@ -36,6 +36,11 @@ public class MainActivity extends Activity {
                 activity.progressBar.setVisibility(View.GONE);
             }
         }
+
+        @Override
+        public void onReceivedSslError(WebView view, android.webkit.SslErrorHandler handler, android.net.http.SslError error) {
+            handler.proceed();
+        }
     }
 
     static class CustomWebChromeClient extends WebChromeClient {
@@ -75,6 +80,7 @@ public class MainActivity extends Activity {
         settings.setDisplayZoomControls(false);
         settings.setCacheMode(WebSettings.LOAD_DEFAULT);
         settings.setAllowFileAccess(true);
+        settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
 
         webView.setWebViewClient(new CustomWebViewClient(this));
         webView.setWebChromeClient(new CustomWebChromeClient(this));

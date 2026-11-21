@@ -1907,22 +1907,31 @@ code, pre {
     height: 460px;
   }
 
-  /* Citation Network on Mobile */
-  .network-graph-shell {
-    flex-direction: column;
+  /* Citation Network on Mobile (Touch-Optimized Responsive Stack) */
+  .network-canvas-container {
+    flex-direction: column !important;
+    gap: 12px !important;
+    padding: 10px !important;
+    min-height: auto !important;
   }
 
-  .citation-network-container {
-    height: 380px;
+  .network-svg-wrapper {
+    width: 100% !important;
+    height: 380px !important;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    touch-action: none !important;
+    -webkit-user-select: none;
+    user-select: none;
   }
 
   .network-inspector-drawer {
-    width: 100%;
-    border-left: none;
-    border-top: 1px solid var(--border-light);
-    padding-left: 0;
-    padding-top: 10px;
-    max-height: 240px;
+    width: 100% !important;
+    border-left: none !important;
+    border-top: 1px solid var(--border-light) !important;
+    padding-left: 0 !important;
+    padding-top: 12px !important;
+    max-height: none !important;
   }
 
   /* Fixed Bottom Navigation Bar for Mobile */

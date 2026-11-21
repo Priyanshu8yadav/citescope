@@ -165,6 +165,194 @@ interface GapData {
   }>;
 }
 
+const DEFAULT_GRAPH_DATA: GraphData = {
+  nodes: [
+    {
+      id: 'W3125678901',
+      title: 'Attention Is All You Need',
+      short_label: 'Vaswani',
+      year: 2017,
+      citations: 134210,
+      venue: 'NeurIPS 2017',
+      authors: ['Ashish Vaswani', 'Noam Shazeer', 'Niki Parmar'],
+      doi: 'https://doi.org/10.48550/arXiv.1706.03762',
+      pdf_url: 'https://arxiv.org/pdf/1706.03762.pdf',
+      is_oa: true,
+      topics: ['Transformer', 'Self-Attention', 'Neural Machine Translation'],
+      x: 450,
+      y: 250,
+      timeline_x: 350,
+      timeline_y: 110,
+      radius: 34
+    },
+    {
+      id: 'W2963403868',
+      title: 'BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding',
+      short_label: 'Devlin',
+      year: 2018,
+      citations: 98450,
+      venue: 'NAACL 2019',
+      authors: ['Jacob Devlin', 'Ming-Wei Chang', 'Kenton Lee', 'Kristina Toutanova'],
+      doi: 'https://doi.org/10.48550/arXiv.1810.04805',
+      pdf_url: 'https://arxiv.org/pdf/1810.04805.pdf',
+      is_oa: true,
+      topics: ['Bidirectional Encoder', 'Pre-training', 'Masked Language Model'],
+      x: 585,
+      y: 185,
+      timeline_x: 480,
+      timeline_y: 140,
+      radius: 30
+    },
+    {
+      id: 'W3032549211',
+      title: 'Language Models are Few-Shot Learners (GPT-3)',
+      short_label: 'Brown',
+      year: 2020,
+      citations: 45200,
+      venue: 'NeurIPS 2020',
+      authors: ['Tom B. Brown', 'Benjamin Mann', 'Nick Ryder'],
+      doi: 'https://doi.org/10.48550/arXiv.2005.14165',
+      pdf_url: 'https://arxiv.org/pdf/2005.14165.pdf',
+      is_oa: true,
+      topics: ['Autoregressive Language Models', 'Few-Shot Learning', 'In-Context Learning'],
+      x: 315,
+      y: 315,
+      timeline_x: 620,
+      timeline_y: 170,
+      radius: 28
+    },
+    {
+      id: 'W3107050012',
+      title: 'An Image is Worth 16x16 Words: Transformers for Image Recognition at Scale (ViT)',
+      short_label: 'Dosovitskiy',
+      year: 2021,
+      citations: 32100,
+      venue: 'ICLR 2021',
+      authors: ['Alexey Dosovitskiy', 'Lucas Beyer', 'Alexander Kolesnikov'],
+      doi: 'https://doi.org/10.48550/arXiv.2010.11929',
+      pdf_url: 'https://arxiv.org/pdf/2010.11929.pdf',
+      is_oa: true,
+      topics: ['Vision Transformer', 'Image Classification', 'Attention Map'],
+      x: 575,
+      y: 335,
+      timeline_x: 680,
+      timeline_y: 200,
+      radius: 26
+    },
+    {
+      id: 'W4389201948',
+      title: 'LLaMA: Open and Efficient Foundation Language Models',
+      short_label: 'Touvron',
+      year: 2023,
+      citations: 18400,
+      venue: 'Meta AI Preprint',
+      authors: ['Hugo Touvron', 'Thibaut Lavril', 'Gautier Izacard'],
+      doi: 'https://doi.org/10.48550/arXiv.2302.13971',
+      pdf_url: 'https://arxiv.org/pdf/2302.13971.pdf',
+      is_oa: true,
+      topics: ['Foundation Models', 'Pre-normalization', 'Rotary Embeddings'],
+      x: 325,
+      y: 165,
+      timeline_x: 750,
+      timeline_y: 230,
+      radius: 24
+    },
+    {
+      id: 'W4283182910',
+      title: 'FlashAttention: Fast and Memory-Efficient Exact Attention with IO-Awareness',
+      short_label: 'Dao',
+      year: 2022,
+      citations: 6850,
+      venue: 'NeurIPS 2022',
+      authors: ['Tri Dao', 'Daniel Y. Fu', 'Stefano Ermon', 'Atri Rudra'],
+      doi: 'https://doi.org/10.48550/arXiv.2205.14135',
+      pdf_url: 'https://arxiv.org/pdf/2205.14135.pdf',
+      is_oa: true,
+      topics: ['IO-Aware Attention', 'Exact Memory Optimization', 'Hardware Acceleration'],
+      x: 450,
+      y: 410,
+      timeline_x: 710,
+      timeline_y: 260,
+      radius: 22
+    },
+    {
+      id: 'W3034573343',
+      title: 'Transformers are RNNs: Fast Autoregressive Transformers with Linear Attention',
+      short_label: 'Katharopoulos',
+      year: 2020,
+      citations: 3660,
+      venue: 'ICML 2020',
+      authors: ['Angelos Katharopoulos', 'Apoorv Vyas', 'Nikolaos Pappas', 'François Fleuret'],
+      doi: 'https://doi.org/10.48550/arXiv.2006.16236',
+      pdf_url: 'https://arxiv.org/pdf/2006.16236.pdf',
+      is_oa: true,
+      topics: ['Linear Attention', 'Causal Recurrence', 'Complexity Reduction'],
+      x: 450,
+      y: 90,
+      timeline_x: 610,
+      timeline_y: 290,
+      radius: 20
+    }
+  ],
+  edges: [
+    {
+      source: 'W2963403868',
+      target: 'W3125678901',
+      intent: 'supporting',
+      section: 'Architecture',
+      snippet: 'Adopts the multi-head self-attention mechanisms of the original Transformer encoder.',
+      confidence: 0.95
+    },
+    {
+      source: 'W3032549211',
+      target: 'W3125678901',
+      intent: 'supporting',
+      section: 'Model Definition',
+      snippet: 'Scales the decoder-only autoregressive self-attention formulation from 117M to 175B parameters.',
+      confidence: 0.92
+    },
+    {
+      source: 'W3107050012',
+      target: 'W3125678901',
+      intent: 'supporting',
+      section: 'Methodology',
+      snippet: 'Applies standard Transformer encoder directly to 16x16 flattened visual token patches.',
+      confidence: 0.94
+    },
+    {
+      source: 'W4389201948',
+      target: 'W3125678901',
+      intent: 'supporting',
+      section: 'Foundation Architecture',
+      snippet: 'Utilizes Transformer blocks enhanced with RMSNorm and SwiGLU activation functions.',
+      confidence: 0.91
+    },
+    {
+      source: 'W4283182910',
+      target: 'W3125678901',
+      intent: 'supporting',
+      section: 'GPU Compute Efficiency',
+      snippet: 'Solves the memory bandwidth bottleneck in standard Transformer self-attention without approximation.',
+      confidence: 0.96
+    },
+    {
+      source: 'W3034573343',
+      target: 'W3125678901',
+      intent: 'contrasting',
+      section: 'Attention Complexity',
+      snippet: 'Demonstrates quadratic O(N^2) complexity in standard Transformers is an avoidable barrier for long sequences.',
+      confidence: 0.88
+    }
+  ],
+  metrics: {
+    total_nodes: 7,
+    total_edges: 6,
+    supporting_count: 5,
+    contrasting_count: 1,
+    mentioning_count: 0
+  }
+};
+
 const DEFAULT_BENCHMARK_PAPERS: Paper[] = [
   {
     id: 'W3125678901',
@@ -284,9 +472,9 @@ export function App() {
   // Enhanced Citation Network State
   const [graphViewMode, setGraphViewMode] = useState<'network' | 'timeline'>('network');
   const [graphIntentFilter, setGraphIntentFilter] = useState<'all' | 'supporting' | 'contrasting'>('all');
-  const [graphData, setGraphData] = useState<GraphData | null>(null);
-  const [selectedEdge, setSelectedEdge] = useState<any | null>(null);
-  const [selectedNode, setSelectedNode] = useState<any | null>(null);
+  const [graphData, setGraphData] = useState<GraphData | null>(DEFAULT_GRAPH_DATA);
+  const [selectedEdge, setSelectedEdge] = useState<any | null>(DEFAULT_GRAPH_DATA.edges[0]);
+  const [selectedNode, setSelectedNode] = useState<any | null>(DEFAULT_GRAPH_DATA.nodes[0]);
   const [graphSearchQuery, setGraphSearchQuery] = useState<string>('');
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [graphZoom, setGraphZoom] = useState<number>(1);
@@ -778,6 +966,22 @@ export function App() {
   };
 
   const handleCanvasMouseUp = () => {
+    setIsPanning(false);
+  };
+
+  const handleCanvasTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 1) {
+      setIsPanning(true);
+      setPanStart({ x: e.touches[0].clientX - graphPan.x, y: e.touches[0].clientY - graphPan.y });
+    }
+  };
+
+  const handleCanvasTouchMove = (e: React.TouchEvent) => {
+    if (!isPanning || e.touches.length !== 1) return;
+    setGraphPan({ x: e.touches[0].clientX - panStart.x, y: e.touches[0].clientY - panStart.y });
+  };
+
+  const handleCanvasTouchEnd = () => {
     setIsPanning(false);
   };
 
@@ -2109,13 +2313,19 @@ export function App() {
                 onMouseUp={handleCanvasMouseUp}
                 onMouseLeave={handleCanvasMouseUp}
                 onWheel={handleCanvasWheel}
+                onTouchStart={handleCanvasTouchStart}
+                onTouchMove={handleCanvasTouchMove}
+                onTouchEnd={handleCanvasTouchEnd}
+                onTouchCancel={handleCanvasTouchEnd}
+                style={{ touchAction: 'none' }}
               >
                 <svg
                   ref={svgRef}
                   width="100%"
-                  height="520"
+                  height="100%"
                   viewBox="0 0 900 520"
-                  style={{ cursor: isPanning ? 'grabbing' : 'grab' }}
+                  preserveAspectRatio="xMidYMid meet"
+                  style={{ cursor: isPanning ? 'grabbing' : 'grab', touchAction: 'none' }}
                 >
                   <defs>
                     {/* Shadow filter for nodes */}
@@ -2221,7 +2431,20 @@ export function App() {
                       }
 
                       return (
-                        <g key={idx} onClick={() => { setSelectedEdge(edge); setSelectedNode(null); }} style={{ cursor: 'pointer' }}>
+                        <g
+                          key={idx}
+                          onClick={() => { setSelectedEdge(edge); setSelectedNode(null); }}
+                          onTouchEnd={(e) => { e.stopPropagation(); setSelectedEdge(edge); setSelectedNode(null); }}
+                          style={{ cursor: 'pointer' }}
+                        >
+                          {/* Invisible wide stroke for mobile finger tap */}
+                          <path
+                            d={pathD}
+                            fill="none"
+                            stroke="transparent"
+                            strokeWidth={18}
+                            pointerEvents="stroke"
+                          />
                           <path
                             d={pathD}
                             fill="none"
@@ -2264,6 +2487,7 @@ export function App() {
                           key={node.id}
                           transform={`translate(${nx}, ${ny})`}
                           onClick={() => { setSelectedNode(node); setSelectedEdge(null); }}
+                          onTouchEnd={(e) => { e.stopPropagation(); setSelectedNode(node); setSelectedEdge(null); }}
                           onMouseEnter={() => setHoveredNodeId(node.id)}
                           onMouseLeave={() => setHoveredNodeId(null)}
                           style={{
@@ -2272,6 +2496,8 @@ export function App() {
                             transition: 'opacity 0.2s ease'
                           }}
                         >
+                          {/* Invisible expanded tap target for mobile touch */}
+                          <circle r={nodeRadius + 14} fill="transparent" pointerEvents="all" />
                           {/* Pulsating outer ring for seed / focal paper */}
                           {isSeedPaper && (
                             <circle
