@@ -1166,8 +1166,8 @@ code, pre {
   .sidebar {
     width: 68px;
   }
-  .sidebar .nav-label, .sidebar .brand-title, .sidebar-footer, .sidebar-divider, .sidebar-bottom {
-    display: none;
+  .sidebar .nav-label, .sidebar .brand-title, .sidebar-footer, .sidebar-divider, .sidebar-bottom, .brand-badge {
+    display: none !important;
   }
   .split-view-container {
     flex-direction: column;
@@ -1583,4 +1583,396 @@ code, pre {
   background: #eff6ff;
   border-color: #bfdbfe;
   color: #1d4ed8;
+}
+
+
+/* ==========================================================================
+   Header Layout Utilities
+   ========================================================================== */
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.mobile-brand-pill {
+  display: none;
+  align-items: center;
+  gap: 8px;
+}
+
+.mobile-brand-name {
+  font-family: var(--font-serif);
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.mobile-bottom-nav {
+  display: none;
+}
+
+/* ==========================================================================
+   Comprehensive Mobile Optimization (Phones <= 768px)
+   Native Mobile App Feel, Zero Overlaps, Clean Ergonomics
+   ========================================================================== */
+@media (max-width: 768px) {
+  .app-container {
+    flex-direction: column;
+    min-height: 100vh;
+    background: #f8fafc;
+  }
+
+  /* Completely eliminate desktop sidebar on phones */
+  .sidebar {
+    display: none !important;
+  }
+
+  .main-wrapper {
+    width: 100% !important;
+    min-width: 0 !important;
+    padding-bottom: 78px !important; /* Clearance above fixed bottom navigation */
+  }
+
+  /* Compact Native Top Bar */
+  .top-header {
+    height: 52px;
+    padding: 0 1rem;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: #ffffff;
+    border-bottom: 1px solid var(--border-light);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  }
+
+  .mobile-brand-pill {
+    display: flex;
+  }
+
+  .header-title {
+    display: none !important; /* Replaced by brand pill in header on mobile */
+  }
+
+  .hide-on-mobile {
+    display: none !important;
+  }
+
+  /* Page Container */
+  .page-container {
+    padding: 0.85rem 0.85rem 2rem 0.85rem;
+    max-width: 100%;
+  }
+
+  /* Search Hero State */
+  .search-hero {
+    padding: 1.25rem 1rem;
+    margin-bottom: 1rem;
+    border-radius: var(--radius-md);
+  }
+
+  .search-hero-eyebrow {
+    font-size: 0.68rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .search-hero-title {
+    font-size: 1.15rem;
+    line-height: 1.3;
+    margin-bottom: 0.35rem;
+  }
+
+  .search-hero-desc {
+    font-size: 0.8rem;
+    line-height: 1.5;
+    margin-bottom: 1rem;
+  }
+
+  .search-input-wrapper {
+    padding: 0.35rem 0.65rem;
+  }
+
+  .search-input {
+    font-size: 0.85rem;
+    margin-left: 0.4rem;
+  }
+
+  .search-btn {
+    padding: 0.38rem 0.85rem;
+    font-size: 0.8rem;
+  }
+
+  .topic-pills {
+    margin-top: 0.75rem;
+    gap: 0.35rem;
+  }
+
+  .topic-pill {
+    font-size: 0.7rem;
+    padding: 0.2rem 0.55rem;
+  }
+
+  /* Compact Search Bar */
+  .compact-search-bar {
+    padding: 0.65rem 0.75rem;
+    margin-bottom: 0.85rem;
+    gap: 0.4rem;
+    border-radius: var(--radius-md);
+  }
+
+  .compact-search-row {
+    gap: 0.5rem;
+  }
+
+  .compact-topic-strip {
+    gap: 0.3rem;
+  }
+
+  /* Consensus Card on Mobile */
+  .consensus-card {
+    padding: 0.85rem;
+    margin-bottom: 0.85rem;
+    border-radius: var(--radius-md);
+  }
+
+  .consensus-header {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.65rem;
+  }
+
+  .consensus-title-group {
+    gap: 0.35rem;
+  }
+
+  .consensus-title {
+    font-size: 0.95rem;
+  }
+
+  .confidence-badge {
+    font-size: 0.65rem;
+    padding: 2px 6px;
+  }
+
+  .btn-toggle-evidence {
+    font-size: 0.7rem;
+    padding: 3px 6px;
+  }
+
+  .consensus-meter-bar {
+    height: 8px;
+    margin-bottom: 0.75rem;
+  }
+
+  /* 3-Stat Highlight Grid on Mobile: Neat 3-column row instead of 3 giant stacked cards! */
+  .stat-highlight-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 0.35rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .stat-highlight-card {
+    padding: 0.45rem 0.25rem !important;
+    text-align: center;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+  }
+
+  .stat-card-top {
+    justify-content: center;
+    gap: 3px;
+  }
+
+  .stat-dot {
+    width: 6px;
+    height: 6px;
+  }
+
+  .stat-pct {
+    font-size: 0.82rem;
+    font-weight: 700;
+  }
+
+  .stat-count {
+    display: none; /* Hide verbose count string to prevent wrapping */
+  }
+
+  .stat-card-label {
+    font-size: 0.62rem;
+    line-height: 1.15;
+    margin-top: 2px;
+  }
+
+  .consensus-narrative-box {
+    padding: 0.65rem 0.75rem;
+    margin-bottom: 0.65rem;
+  }
+
+  .consensus-narrative {
+    font-size: 0.78rem;
+    line-height: 1.5;
+  }
+
+  /* Filters Toolbar on Mobile */
+  .search-filters-toolbar {
+    padding: 0.65rem 0.75rem;
+    margin-bottom: 0.85rem;
+    gap: 0.5rem;
+  }
+
+  .search-toolbar-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.45rem;
+  }
+
+  .era-pills {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    width: 100%;
+    padding-bottom: 3px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .era-pill {
+    flex-shrink: 0;
+    font-size: 0.68rem;
+    padding: 3px 8px;
+  }
+
+  /* Paper Card on Mobile */
+  .paper-card {
+    padding: 0.85rem;
+    margin-bottom: 0.75rem;
+    border-radius: var(--radius-md);
+  }
+
+  .paper-title {
+    font-size: 0.95rem;
+    line-height: 1.35;
+  }
+
+  .paper-meta {
+    font-size: 0.7rem;
+    gap: 4px;
+    flex-wrap: wrap;
+    margin-top: 4px;
+  }
+
+  .paper-evidence-box {
+    padding: 0.55rem 0.7rem;
+    margin: 0.6rem 0;
+  }
+
+  .paper-evidence-text {
+    font-size: 0.75rem;
+    line-height: 1.45;
+  }
+
+  .paper-card-actions {
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin-top: 0.65rem;
+  }
+
+  .paper-btn-action {
+    padding: 4px 8px;
+    font-size: 0.7rem;
+  }
+
+  /* Split View & Copilot on Mobile */
+  .split-view-container {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .split-reader-pane {
+    max-height: 360px;
+  }
+
+  .copilot-pane {
+    width: 100%;
+    height: 460px;
+  }
+
+  /* Citation Network on Mobile */
+  .network-graph-shell {
+    flex-direction: column;
+  }
+
+  .citation-network-container {
+    height: 380px;
+  }
+
+  .network-inspector-drawer {
+    width: 100%;
+    border-left: none;
+    border-top: 1px solid var(--border-light);
+    padding-left: 0;
+    padding-top: 10px;
+    max-height: 240px;
+  }
+
+  /* Fixed Bottom Navigation Bar for Mobile */
+  .mobile-bottom-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 60px;
+    background: #ffffff;
+    border-top: 1px solid #e2e8f0;
+    z-index: 1000;
+    align-items: center;
+    justify-content: space-around;
+    padding: 0 0.25rem;
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
+  }
+
+  .mobile-nav-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    background: transparent;
+    border: none;
+    color: #64748b;
+    font-size: 0.68rem;
+    font-weight: 500;
+    padding: 6px 6px;
+    border-radius: 8px;
+    cursor: pointer;
+    flex: 1;
+    transition: all 0.15s ease;
+  }
+
+  .mobile-nav-btn.active {
+    color: #2563eb;
+    font-weight: 700;
+    background: #eff6ff;
+  }
+
+  .mobile-nav-btn svg {
+    stroke: #64748b;
+    transition: transform 0.15s ease;
+  }
+
+  .mobile-nav-btn.active svg {
+    stroke: #2563eb;
+    transform: scale(1.1);
+  }
 }

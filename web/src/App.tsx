@@ -6,7 +6,6 @@ import {
   GitFork,
   Lightbulb,
   BookOpen,
-  Smartphone,
   ExternalLink,
   Plus,
   Download,
@@ -26,7 +25,6 @@ import {
   FileSpreadsheet,
   Trash2,
   RotateCcw,
-  Compass,
   ZoomIn,
   ZoomOut,
   Calendar,
@@ -256,7 +254,7 @@ const getApiBase = (): string => {
 const API_BASE = getApiBase();
 
 export function App() {
-  const [activeTab, setActiveTab] = useState<'discovery' | 'matrix' | 'graph' | 'gaps' | 'copilot' | 'mobile'>('discovery');
+  const [activeTab, setActiveTab] = useState<'discovery' | 'matrix' | 'graph' | 'gaps' | 'copilot'>('discovery');
   const [searchQuery, setSearchQuery] = useState('Transformer');
   const [hasSearched, setHasSearched] = useState(true);
   const [papers, setPapers] = useState<Paper[]>(DEFAULT_BENCHMARK_PAPERS);
@@ -264,7 +262,6 @@ export function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [backendOnline, setBackendOnline] = useState(true);
   const [showTraceableStudies, setShowTraceableStudies] = useState(false);
-  const [showOnboardingGuide, setShowOnboardingGuide] = useState(true);
 
   // Filter & Sort for Supporting Papers Table
   const [stanceFilter, setStanceFilter] = useState<'all' | 'supported' | 'neutral' | 'disputing'>('all');
@@ -902,14 +899,6 @@ export function App() {
         {/* Secondary Tools & Settings */}
         <div className="sidebar-bottom">
           <button
-            className={`nav-item ${activeTab === 'mobile' ? 'active' : ''}`}
-            onClick={() => setActiveTab('mobile')}
-          >
-            <Smartphone size={16} />
-            <span className="nav-label">Android Companion</span>
-          </button>
-
-          <button
             className="nav-item"
             onClick={() => setShowSettingsModal(true)}
           >
@@ -938,37 +927,31 @@ export function App() {
       <div className="main-wrapper">
         {/* Top Header Bar */}
         <header className="top-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div className="header-left">
+            <div className="mobile-brand-pill">
+              <div className="brand-icon" style={{ width: 26, height: 26, borderRadius: 6 }}>
+                <Sparkles size={14} />
+              </div>
+              <span className="mobile-brand-name">CiteScope</span>
+            </div>
             <h1 className="header-title">
-              {activeTab === 'discovery' && 'Literature Discovery & Evidence Consensus'}
+              {activeTab === 'discovery' && 'Literature Discovery & Consensus'}
               {activeTab === 'matrix' && 'Comparative Evidence Matrix'}
               {activeTab === 'graph' && 'Citation Lineage & Intent Network'}
-              {activeTab === 'gaps' && 'Research Gap Radar & Capstone Frontiers'}
-              {activeTab === 'copilot' && 'Split-View Paper Reader & Grounded Copilot'}
-              {activeTab === 'mobile' && 'Android Companion App Preview'}
+              {activeTab === 'gaps' && 'Research Gap Radar & Frontiers'}
+              {activeTab === 'copilot' && 'Split-View Paper Copilot'}
             </h1>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <a
-              href="/citescope.apk"
-              download="citescope.apk"
-              className="btn-sm-secondary"
-              style={{ color: '#047857', borderColor: '#a7f3d0', background: '#ecfdf5', textDecoration: 'none' }}
-              title="Download Android APK (v1.0)"
-            >
-              <Smartphone size={13} color="#059669" />
-              <span>Get Android APK</span>
-            </a>
-
+          <div className="header-actions">
             {activeTab === 'matrix' && (
               <button
                 className="btn-sm-secondary"
                 onClick={handleExportMatrixCSV}
                 title="Download table as CSV"
               >
-                <FileSpreadsheet size={14} color="#059669" />
-                <span>Export CSV</span>
+                <FileSpreadsheet size={13} color="#059669" />
+                <span className="hide-on-mobile">Export CSV</span>
               </button>
             )}
 
@@ -986,35 +969,6 @@ export function App() {
         {/* Tab 1: Literature Discovery */}
         {activeTab === 'discovery' && (
           <main className="page-container">
-            {/* User Onboarding Workflow Banner (Clean, Minimalist Workflow Pill) */}
-            {showOnboardingGuide && (
-              <div className="onboarding-guide-banner">
-                <div className="guide-content">
-                  <div className="guide-badge">
-                    <Compass size={13} />
-                    <span>Workflow</span>
-                  </div>
-                  <div className="guide-steps">
-                    <span className="step-item"><strong>1</strong> Search Question</span>
-                    <span className="step-arrow">→</span>
-                    <span className="step-item"><strong>2</strong> Evidence Consensus</span>
-                    <span className="step-arrow">→</span>
-                    <span className="step-item"><strong>3</strong> Comparison Matrix</span>
-                    <span className="step-arrow">→</span>
-                    <span className="step-item"><strong>4</strong> Citation Network</span>
-                    <span className="step-arrow">→</span>
-                    <span className="step-item"><strong>5</strong> Split-View Copilot</span>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setShowOnboardingGuide(false)}
-                  className="guide-dismiss-btn"
-                  title="Dismiss guide"
-                >
-                  <X size={15} />
-                </button>
-              </div>
-            )}
 
             {/* Search Bar: Transitions from Hero to Compact when results load */}
             {!hasSearched || papers.length === 0 ? (
@@ -3086,172 +3040,50 @@ export function App() {
           </div>
         )}
 
-        {/* Tab 6: Android Companion App Preview & Direct APK Download */}
-        {activeTab === 'mobile' && (
-          <main className="page-container" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '2.5rem', alignItems: 'start' }}>
-            {/* Left Column: APK Download Card & Mobile Architecture Presentation Guide */}
-            <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 'var(--radius-lg)', padding: '2rem', boxShadow: 'var(--shadow-sm)' }}>
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', borderRadius: 20, padding: '3px 10px', fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }}>
-                <Smartphone size={13} />
-                <span>Mobile Suite</span>
-              </div>
-
-              <h2 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a', fontFamily: 'var(--font-sans)', lineHeight: 1.3, marginBottom: 8 }}>
-                CiteScope AI for Android
-              </h2>
-              <p style={{ fontSize: '0.875rem', color: '#475569', lineHeight: 1.6, marginBottom: '1.5rem' }}>
-                Full-featured native Android application built with modern Jetpack Compose, Material 3, and Room SQLite offline caching. Perform literature discovery, consensus verification, and paper reviews on mobile.
-              </p>
-
-              {/* Direct APK Download Button */}
-              <div style={{ marginBottom: '1.75rem' }}>
-                <a
-                  href="/citescope.apk"
-                  download="citescope.apk"
-                  className="btn-sm-primary"
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 10,
-                    padding: '0.75rem 1.5rem',
-                    borderRadius: 8,
-                    fontSize: '0.92rem',
-                    fontWeight: 600,
-                    textDecoration: 'none',
-                    boxShadow: '0 4px 12px rgba(37, 99, 235, 0.25)'
-                  }}
-                >
-                  <Download size={18} />
-                  <span>Download citescope.apk (v1.0.0)</span>
-                </a>
-                <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: 8, display: 'flex', gap: 12, alignItems: 'center' }}>
-                  <span>✓ Signed Universal APK</span>
-                  <span>•</span>
-                  <span>Size: ~8.5 KB</span>
-                  <span>•</span>
-                  <span>Android 8.0 - 14 (API 26-34)</span>
-                </div>
-              </div>
-
-              {/* Technical Architecture for Presentation & Defense */}
-              <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-                <h3 style={{ fontSize: '0.9rem', fontWeight: 600, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  Android Mobile Tech Stack
-                </h3>
-                
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                  <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '10px 12px' }}>
-                    <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#2563eb' }}>UI Framework</div>
-                    <div style={{ fontSize: '0.8rem', color: '#334155', fontWeight: 500, marginTop: 2 }}>Jetpack Compose + Material 3</div>
-                  </div>
-                  <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '10px 12px' }}>
-                    <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#2563eb' }}>Networking</div>
-                    <div style={{ fontSize: '0.8rem', color: '#334155', fontWeight: 500, marginTop: 2 }}>Retrofit 2 + OkHttp + Moshi</div>
-                  </div>
-                  <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '10px 12px' }}>
-                    <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#2563eb' }}>Offline Storage</div>
-                    <div style={{ fontSize: '0.8rem', color: '#334155', fontWeight: 500, marginTop: 2 }}>Room SQLite Database</div>
-                  </div>
-                  <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '10px 12px' }}>
-                    <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#2563eb' }}>Concurrency</div>
-                    <div style={{ fontSize: '0.8rem', color: '#334155', fontWeight: 500, marginTop: 2 }}>Kotlin Coroutines & Flow</div>
-                  </div>
-                </div>
-
-                <div style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: 8, padding: '10px 14px', marginTop: 6 }}>
-                  <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#047857', display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <CheckCircle2 size={14} /> PWA Mobile Installation (Instant Zero-Install)
-                  </div>
-                  <div style={{ fontSize: '0.75rem', color: '#334155', marginTop: 4, lineHeight: 1.5 }}>
-                    Open this website on Chrome for Android or Safari for iOS and select <strong>"Add to Home Screen"</strong> to run CiteScope as an offline-capable Progressive Web App with standalone viewport!
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Right Column: Interactive Phone Simulator */}
-            <div style={{ display: 'flex', justifyContent: 'center' }}>
-              <div style={{
-                width: 380,
-                background: '#ffffff',
-                borderRadius: 36,
-                border: '10px solid #0f172a',
-                boxShadow: 'var(--shadow-lg)',
-                overflow: 'hidden',
-                display: 'flex',
-                flexDirection: 'column',
-                minHeight: 680
-              }}>
-                <div style={{ background: '#f8fafc', padding: '10px 18px', display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', fontWeight: 600, color: '#334155' }}>
-                  <span>9:41</span>
-                  <span>CiteScope Mobile</span>
-                  <span>100%</span>
-                </div>
-
-                <div style={{ padding: '12px 16px', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div style={{ width: 28, height: 28, borderRadius: 6, background: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
-                    <Sparkles size={16} />
-                  </div>
-                  <div style={{ fontSize: '0.95rem', fontWeight: 600, color: '#0f172a', fontFamily: 'var(--font-sans)' }}>
-                    CiteScope Companion
-                  </div>
-                </div>
-
-                <div style={{ padding: '12px 16px', background: '#fafbfc' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: 8, padding: '6px 10px', gap: 8 }}>
-                    <Search size={14} color="#64748b" />
-                    <input
-                      type="text"
-                      placeholder="Search scholarly papers..."
-                      defaultValue="Transformer"
-                      style={{ border: 'none', outline: 'none', fontSize: '0.8rem', width: '100%' }}
-                    />
-                  </div>
-                </div>
-
-                <div style={{ flex: 1, padding: '12px 16px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  <div style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: 8, padding: 10 }}>
-                    <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#047857' }}>Consensus: 80% Supported</div>
-                    <div style={{ fontSize: '0.72rem', color: '#334155', marginTop: 2 }}>
-                      Based on 10 peer-reviewed studies across OpenAlex & arXiv.
-                    </div>
-                  </div>
-
-                  <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 8, padding: 12 }}>
-                    <span className="badge-oa" style={{ fontSize: '0.65rem' }}>Open Access PDF</span>
-                    <div style={{ fontWeight: 600, fontSize: '0.88rem', color: '#0f172a', marginTop: 4, fontFamily: 'var(--font-sans)' }}>
-                      Attention Is All You Need
-                    </div>
-                    <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: 2 }}>Vaswani et al. • 2017 • NeurIPS</div>
-                    <p style={{ fontSize: '0.75rem', color: '#334155', marginTop: 6, lineHeight: 1.4 }}>
-                      Replaces recurrent and convolutional layers entirely with multi-head self-attention mechanisms.
-                    </p>
-                    <div style={{ marginTop: 8, display: 'flex', gap: 6 }}>
-                      <button className="btn-sm-primary" style={{ fontSize: '0.7rem', padding: '2px 8px' }}>Read PDF</button>
-                      <button className="btn-sm-secondary" style={{ fontSize: '0.7rem', padding: '2px 8px' }}>Copilot</button>
-                    </div>
-                  </div>
-
-                  <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 8, padding: 12 }}>
-                    <span className="badge-oa" style={{ fontSize: '0.65rem' }}>Open Access PDF</span>
-                    <div style={{ fontWeight: 600, fontSize: '0.88rem', color: '#0f172a', marginTop: 4, fontFamily: 'var(--font-sans)' }}>
-                      BERT: Deep Bidirectional Pre-training
-                    </div>
-                    <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: 2 }}>Devlin et al. • 2018 • NAACL</div>
-                  </div>
-                </div>
-
-                <div style={{ borderTop: '1px solid #e2e8f0', padding: '8px 16px', display: 'flex', justifyContent: 'space-around', background: '#f8fafc' }}>
-                  <span style={{ fontSize: '0.7rem', color: '#2563eb', fontWeight: 600 }}>Discovery</span>
-                  <span style={{ fontSize: '0.7rem', color: '#64748b' }}>Matrix</span>
-                  <span style={{ fontSize: '0.7rem', color: '#64748b' }}>Network</span>
-                  <span style={{ fontSize: '0.7rem', color: '#64748b' }}>Copilot</span>
-                </div>
-              </div>
-            </div>
-          </main>
-        )}
       </div>
+
+      {/* Modern Mobile Bottom Navigation Bar (Fixed for phones) */}
+      <nav className="mobile-bottom-nav">
+        <button
+          className={`mobile-nav-btn ${activeTab === "discovery" ? "active" : ""}`}
+          onClick={() => setActiveTab("discovery")}
+        >
+          <Search size={19} />
+          <span>Discovery</span>
+        </button>
+
+        <button
+          className={`mobile-nav-btn ${activeTab === "matrix" ? "active" : ""}`}
+          onClick={() => setActiveTab("matrix")}
+        >
+          <TableIcon size={19} />
+          <span>Matrix</span>
+        </button>
+
+        <button
+          className={`mobile-nav-btn ${activeTab === "graph" ? "active" : ""}`}
+          onClick={() => setActiveTab("graph")}
+        >
+          <GitFork size={19} />
+          <span>Network</span>
+        </button>
+
+        <button
+          className={`mobile-nav-btn ${activeTab === "gaps" ? "active" : ""}`}
+          onClick={() => setActiveTab("gaps")}
+        >
+          <Lightbulb size={19} />
+          <span>Gaps</span>
+        </button>
+
+        <button
+          className={`mobile-nav-btn ${activeTab === "copilot" ? "active" : ""}`}
+          onClick={() => setActiveTab("copilot")}
+        >
+          <BookOpen size={19} />
+          <span>Copilot</span>
+        </button>
+      </nav>
 
       {/* Floating Action Toast Notification */}
       {toastMessage && (
