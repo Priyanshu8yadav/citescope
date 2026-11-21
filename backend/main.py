@@ -57,6 +57,28 @@ class AITestRequest(BaseModel):
     model: Optional[str] = None
 
 
+@app.get("/")
+async def root():
+    return {
+        "status": "online",
+        "service": "CiteScope AI API",
+        "version": "1.0.0",
+        "docs": "/docs",
+        "health": "/api/health",
+        "endpoints": [
+            "/api/health",
+            "/api/search",
+            "/api/consensus",
+            "/api/citations/graph",
+            "/api/research-gaps",
+            "/api/matrix/extract",
+            "/api/copilot/chat",
+            "/docs"
+        ],
+        "message": "CiteScope AI backend is live and operational!"
+    }
+
+
 @app.get("/api/health")
 async def health_check():
     return {
